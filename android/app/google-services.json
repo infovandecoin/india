@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "911691354288",
+    "project_id": "vandecoin-network",
+    "storage_bucket": "vandecoin-network.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:911691354288:android:c5bdf362d361f2b5d5eb75",
+        "android_client_info": {
+          "package_name": "network.vandecoin.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAkX10GIHyXtizjQI86WBUXCCWLKmCcsIY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
