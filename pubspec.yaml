@@ -1,0 +1,49 @@
+name: vandecoin_flutter
+description: "VandeCoin (VDC) - Official Production-Grade Multi-Platform Mobile Application"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management & Architecture
+  flutter_riverpod: ^2.5.1
+
+  # Navigation & Deep Linking
+  go_router: ^14.2.0
+
+  # Persistence & Security
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.2.3
+  local_auth: ^2.2.0
+  crypto: ^3.0.3
+
+  # Networking & Utilities
+  intl: ^0.19.0
+  uuid: ^4.4.0
+
+  # UI & Design
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  generate: true
+
+  assets:
+    - assets/images/
+    - assets/images/vdc-coin.png
+    - assets/images/vdc-dark.png
+    - assets/images/vdc-logo.png
+    - assets/images/vdc-mark.png

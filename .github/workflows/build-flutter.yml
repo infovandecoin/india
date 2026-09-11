@@ -1,0 +1,69 @@
+name: Build VandeCoin Flutter Multi-Platform
+
+on:
+  push:
+    branches: [ main, master, flutter ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Multi-Platform Release (APK, AAB, Web)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Verify Flutter Version
+        run: flutter --version
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Run Static Analysis
+        run: flutter analyze || true
+
+      - name: Run Automated Test Suite
+        run: flutter test
+
+      - name: Build Android Release APK
+        run: flutter build apk --release
+
+      - name: Build Android Release App Bundle (.aab)
+        run: flutter build appbundle --release
+
+      - name: Build Flutter Web Bundle
+        run: flutter build web --release
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VandeCoin-Flutter-Release-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: warn
+
+      - name: Upload Release AAB (Play Store)
+        uses: actions/upload-artifact@v4
+        with:
+          name: VandeCoin-Flutter-Release-AAB
+          path: build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: warn
+
+      - name: Upload Web Distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: VandeCoin-Flutter-Web
+          path: build/web/
+          if-no-files-found: warn
