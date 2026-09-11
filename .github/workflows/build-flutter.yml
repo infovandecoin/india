@@ -31,13 +31,15 @@ jobs:
 
       - name: Generate Platform Host Harness
         run: |
-          mkdir -p /tmp/vdc_backup
-          cp android/app/build.gradle /tmp/vdc_backup/build.gradle.bak || true
-          cp android/app/src/main/AndroidManifest.xml /tmp/vdc_backup/AndroidManifest.xml.bak || true
-          flutter create . --org network.vandecoin --project-name vandecoin_flutter --platforms android,web
+          rm -rf android web
+          flutter create . --org network.vandecoin --project-name vandecoin_app --platforms android,web
           rm -f test/widget_test.dart
-          cp /tmp/vdc_backup/build.gradle.bak android/app/build.gradle || true
-          cp /tmp/vdc_backup/AndroidManifest.xml.bak android/app/src/main/AndroidManifest.xml || true
+          # Ensure applicationId is network.vandecoin.app
+          find android/ -name "*.gradle*" -exec sed -i 's/network.vandecoin.vandecoin_app/network.vandecoin.app/g' {} + || true
+          # Add permissions to AndroidManifest.xml
+          sed -i 's/<manifest xmlns:android="http:\/\/schemas.android.com\/apk\/res\/android">/<manifest xmlns:android="http:\/\/schemas.android.com\/apk\/res\/android">\n    <uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"\/>\n    <uses-permission android:name="android.permission.USE_BIOMETRIC"\/>/' android/app/src/main/AndroidManifest.xml || true
+          # Support local_auth FragmentActivity
+          find android/app/src/main/ -name "MainActivity.kt" -exec sed -i 's/FlutterActivity/FlutterFragmentActivity/g' {} + || true
 
       - name: Install Dependencies
         run: flutter pub get
@@ -62,7 +64,7 @@ jobs:
         with:
           name: VandeCoin-Flutter-Release-APK
           path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Upload Release AAB (Play Store)
         uses: actions/upload-artifact@v4
