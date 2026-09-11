@@ -20,9 +20,7 @@ class ComplianceBanner extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.gold.withOpacity(0.06),
           borderRadius: BorderRadius.circular(8),
-          border: Border.padLeft == null
-              ? Border.all(color: AppColors.gold.withOpacity(0.2), width: 0.8)
-              : null,
+          border: Border.all(color: AppColors.gold.withOpacity(0.2), width: 0.8),
         ),
         child: Row(
           children: [

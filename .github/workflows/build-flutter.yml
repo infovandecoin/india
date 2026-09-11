@@ -29,6 +29,9 @@ jobs:
       - name: Verify Flutter Version
         run: flutter --version
 
+      - name: Generate Platform Host Harness
+        run: flutter create . --org network.vandecoin --project-name vandecoin_flutter --platforms android,web
+
       - name: Install Dependencies
         run: flutter pub get
 
