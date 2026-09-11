@@ -14,11 +14,12 @@ import {
   Calendar,
   CheckCircle2
 } from 'lucide-react';
-import { VdcCoin, VdcLogo } from '../../assets/VdcLogo';
+import { VdcCoin } from '../../assets/VdcLogo';
 
 export const HomeScreen: React.FC = () => {
   const { 
     user, 
+    rewardsHistory,
     navigateTo, 
     toggleMining 
   } = useApp();
@@ -27,6 +28,9 @@ export const HomeScreen: React.FC = () => {
   const minutes = Math.floor((user.sessionRemainingSeconds % 3600) / 60);
   const seconds = user.sessionRemainingSeconds % 60;
   const timeFormatted = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+  const recentActivities = rewardsHistory.slice(0, 3);
+  const setupPercent = Math.round((user.setupTasksCompleted / Math.max(1, user.setupTasksTotal)) * 100);
 
   return (
     <div className="w-full flex-1 px-4 py-4 space-y-4 pb-6">
@@ -100,7 +104,7 @@ export const HomeScreen: React.FC = () => {
                 stroke="url(#goldStroke)"
                 strokeWidth="8"
                 strokeDasharray="440"
-                strokeDashoffset={user.miningActive ? '85' : '440'}
+                strokeDashoffset={user.miningActive ? String(440 - (440 * (86400 - user.sessionRemainingSeconds) / 86400)) : '440'}
                 strokeLinecap="round"
                 className="transition-all duration-1000"
               />
@@ -121,14 +125,16 @@ export const HomeScreen: React.FC = () => {
               <div className="absolute -bottom-2.5 px-2.5 py-0.5 rounded-full bg-[#0D1018]/95 border border-[#FF9933]/40 shadow-xl backdrop-blur-md flex items-center gap-1.5 z-10">
                 <span className={`w-2 h-2 rounded-full ${user.miningActive ? 'bg-emerald-400 shadow-cyan-glow animate-pulse' : 'bg-rose-500'}`} />
                 <span className="text-[10px] font-mono font-bold text-white tracking-wide">
-                  {user.miningActive ? 'MINING 24H' : 'PAUSED'}
+                  {user.miningActive ? 'MINING 24H' : 'READY'}
                 </span>
               </div>
             </div>
           </div>
 
           <div className="text-xs text-slate-400 font-mono mt-1 text-center">
-            Next reward session in <span className="text-[#FFB86C] font-semibold">{timeFormatted}</span>
+            {user.miningActive 
+              ? <>Session remaining: <span className="text-[#FFB86C] font-semibold">{timeFormatted}</span></>
+              : 'Tap to start daily Proof-of-Participation'}
           </div>
         </div>
 
@@ -143,7 +149,7 @@ export const HomeScreen: React.FC = () => {
             }`}
           >
             <Zap className="w-4 h-4 fill-current" />
-            <span>{user.miningActive ? 'MINING ACTIVE' : 'START MINING SESSION'}</span>
+            <span>{user.miningActive ? 'MINING ACTIVE (TAP TO SETTLE)' : 'START MINING SESSION'}</span>
           </button>
 
           <button
@@ -161,17 +167,17 @@ export const HomeScreen: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#FF9933]" />
-            <h3 className="text-sm font-bold text-white tracking-tight">Today's Progress</h3>
+            <h3 className="text-sm font-bold text-white tracking-tight">Onboarding Progress</h3>
           </div>
           <span className="text-xs font-mono font-semibold text-[#FFB86C] bg-[#FF9933]/15 px-2.5 py-0.5 rounded-full border border-[#FF9933]/30">
-            7 / 10 Completed
+            {user.setupTasksCompleted} / {user.setupTasksTotal} Tasks
           </span>
         </div>
 
         <div className="w-full h-2.5 rounded-full bg-white/10 overflow-hidden relative">
           <div 
             className="h-full rounded-full bg-gradient-to-r from-[#FFB86C] via-[#FF9933] to-[#06B6D4] transition-all duration-700 shadow-gold-glow"
-            style={{ width: '70%' }}
+            style={{ width: `${setupPercent}%` }}
           />
         </div>
 
@@ -187,11 +193,11 @@ export const HomeScreen: React.FC = () => {
                 <span>Daily Mining</span>
               </div>
               <div className="text-xs font-bold text-emerald-400 mt-1 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" />
-                <span>Active</span>
+                {user.miningActive ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3 text-slate-400" />}
+                <span>{user.miningActive ? 'Active' : 'Standby'}</span>
               </div>
             </div>
-            <span className="text-xs font-mono font-semibold text-white">+18 VDC</span>
+            <span className="text-xs font-mono font-semibold text-white">+{user.miningRatePerHour.toFixed(2)}/h</span>
           </button>
 
           <button
@@ -201,13 +207,13 @@ export const HomeScreen: React.FC = () => {
             <div>
               <div className="flex items-center gap-1 text-[11px] text-slate-400 font-mono">
                 <HelpCircle className="w-3 h-3 text-cyan-400" />
-                <span>Quiz</span>
+                <span>VandeQuiz</span>
               </div>
               <div className="text-xs font-bold text-[#FF9933] mt-1">
-                Ready to play
+                Daily Quiz
               </div>
             </div>
-            <span className="text-xs font-mono font-semibold text-white">+10 VDC</span>
+            <span className="text-xs font-mono font-semibold text-white">+12 VDC</span>
           </button>
 
           <button
@@ -220,10 +226,10 @@ export const HomeScreen: React.FC = () => {
                 <span>VandeCircle</span>
               </div>
               <div className="text-xs font-bold text-slate-300 mt-1">
-                8 Members
+                {user.circleMembersCount} Members
               </div>
             </div>
-            <span className="text-xs font-mono font-semibold text-white">+4.50 VDC</span>
+            <span className="text-xs font-mono font-semibold text-white">+{user.circleEarningsToday.toFixed(2)} VDC</span>
           </button>
 
           <button
@@ -236,10 +242,10 @@ export const HomeScreen: React.FC = () => {
                 <span>Streak</span>
               </div>
               <div className="text-xs font-bold text-rose-400 mt-1">
-                14 Days 🔥
+                Day {user.streakDays} 🔥
               </div>
             </div>
-            <span className="text-xs font-mono font-semibold text-white">+5 VDC</span>
+            <span className="text-xs font-mono font-semibold text-white">+1 VDC</span>
           </button>
         </div>
 
@@ -252,13 +258,13 @@ export const HomeScreen: React.FC = () => {
             <span className="font-medium text-slate-200">Achievements ({user.achievementsUnlocked}/{user.totalAchievements})</span>
           </div>
           <span className="font-mono font-bold text-[#FFB86C] flex items-center gap-1">
-            +5.00 VDC Unclaimed
+            View Badges
             <ChevronRight className="w-3.5 h-3.5" />
           </span>
         </button>
       </div>
 
-      {/* 3. Today's Earnings & Micro Activity Timeline */}
+      {/* 3. Today's Earnings & Live Ledger Activity */}
       <div className="w-full rounded-2xl p-4 glass-panel border border-white/10 space-y-3">
         <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
           <div>
@@ -271,37 +277,34 @@ export const HomeScreen: React.FC = () => {
             onClick={() => navigateTo('rewards')}
             className="text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10"
           >
-            <span>Breakdown</span>
+            <span>Ledger</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
         <div className="space-y-2 pt-1">
-          <div className="flex items-center justify-between text-xs py-1 border-b border-white/5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span className="text-slate-300">Daily participation verified</span>
+          {recentActivities.length === 0 ? (
+            <div className="py-3 text-center text-xs text-slate-400 font-mono">
+              No ledger transactions yet. Start mining or complete a quiz to earn VDC!
             </div>
-            <span className="font-mono font-semibold text-white">+18.00 VDC</span>
-          </div>
-          <div className="flex items-center justify-between text-xs py-1 border-b border-white/5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-2 h-2 rounded-full bg-cyan-400" />
-              <span className="text-slate-300">Quiz: Blockchain Concepts (8/10)</span>
-            </div>
-            <span className="font-mono font-semibold text-white">+10.00 VDC</span>
-          </div>
-          <div className="flex items-center justify-between text-xs py-1">
-            <div className="flex items-center gap-2.5">
-              <div className="w-2 h-2 rounded-full bg-[#FF9933]" />
-              <span className="text-slate-300">14-Day Streak Milestone Reward</span>
-            </div>
-            <span className="font-mono font-semibold text-white">+5.00 VDC</span>
-          </div>
+          ) : (
+            recentActivities.map(act => (
+              <div key={act.id} className="flex items-center justify-between text-xs py-1 border-b border-white/5 last:border-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <div>
+                    <div className="font-bold text-white">{act.title}</div>
+                    <div className="text-[10px] text-slate-400">{act.activity}</div>
+                  </div>
+                </div>
+                <span className="font-mono font-bold text-[#FF9933]">+{Number(act.amount).toFixed(2)} VDC</span>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
-      {/* 4. Come back tomorrow Engagement Card */}
+      {/* 4. Streaks Promo */}
       <div 
         onClick={() => navigateTo('streaks')}
         className="w-full rounded-2xl p-4 bg-gradient-to-r from-[#18141F] via-[#201828] to-[#141B2B] border border-purple-500/25 cursor-pointer hover:border-purple-400/50 transition-all flex items-center gap-3.5 group shadow-lg"
@@ -311,13 +314,13 @@ export const HomeScreen: React.FC = () => {
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-bold text-white">Day 15 Unlocks Tomorrow</span>
+            <span className="text-xs font-bold text-white">Daily Streak Active</span>
             <span className="px-1.5 py-0.2 rounded-full bg-purple-400/20 text-purple-300 text-[10px] font-mono font-semibold">
-              +50 VDC Bonus
+              Day {user.streakDays}
             </span>
           </div>
           <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-            Maintain your 14-day streak to claim your half-month ecosystem milestone reward.
+            Check in every calendar day to maintain your multiplier and reach Day 30 (+150 VDC).
           </p>
         </div>
         <ChevronRight className="w-4 h-4 text-purple-400 group-hover:translate-x-0.5 transition-transform" />

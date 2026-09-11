@@ -57,12 +57,30 @@ export interface UserState {
   isVerifiedVandeId: boolean;
   setupTasksCompleted: number;
   setupTasksTotal: number;
+  lastCheckInDate?: string;
+  lastMiningSessionId?: string;
 }
 
 export interface QuizQuestion {
   id: number;
   question: string;
   options: string[];
+  correctIndex: number;
+  explanation: string;
+  vdcReward: number;
+}
+
+export interface QuizQuestionPublic {
+  id: number;
+  question: string;
+  options: string[];
+  vdcReward: number;
+}
+
+export interface QuizEvaluationResult {
+  questionId: number;
+  selectedOption: number;
+  isCorrect: boolean;
   correctIndex: number;
   explanation: string;
   vdcReward: number;
@@ -95,12 +113,53 @@ export interface AchievementItem {
 
 export interface RewardTransaction {
   id: string;
+  userId?: string;
   title: string;
   activity: string;
   amount: number;
   timestamp: string;
   status: 'completed' | 'pending';
   category: 'mining' | 'quiz' | 'streak' | 'circle' | 'referral' | 'achievement' | 'welcome';
+  refKey?: string;
+}
+
+export interface LedgerTransaction extends RewardTransaction {
+  userId: string;
+  refKey: string;
+  createdAt?: any;
+}
+
+export interface MiningSession {
+  id: string;
+  userId: string;
+  startedAt: number;
+  expiresAt: number;
+  ratePerHour: number;
+  baseRate: number;
+  streakBonus: number;
+  circleBonus: number;
+  settled: boolean;
+  accruedVdc: number;
+}
+
+export interface SecuritySession {
+  id: string;
+  device: string;
+  platform: string;
+  browser: string;
+  location: string;
+  lastActive: string;
+  isCurrent: boolean;
+}
+
+export interface ReferralRecord {
+  id: string;
+  referrerUid: string;
+  inviteeUid: string;
+  inviteeHandle: string;
+  joinedAt: string;
+  status: 'verified' | 'active' | 'pending';
+  rewardPaid: boolean;
 }
 
 export interface AppNotification {

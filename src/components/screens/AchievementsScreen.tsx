@@ -28,6 +28,8 @@ export const AchievementsScreen: React.FC = () => {
     ? achievements 
     : achievements.filter(a => a.category === activeCategory);
 
+  const unlockedPercent = Math.round((user.achievementsUnlocked / Math.max(1, user.totalAchievements)) * 100);
+
   const getIcon = (iconName: string) => {
     switch (iconName) {
       case 'Sparkles': return <Sparkles className="w-5 h-5" />;
@@ -80,7 +82,7 @@ export const AchievementsScreen: React.FC = () => {
             />
             <path
               className="text-[#FF9933]"
-              strokeDasharray="36, 100"
+              strokeDasharray={`${unlockedPercent}, 100`}
               strokeWidth="3.5"
               strokeLinecap="round"
               stroke="currentColor"
@@ -88,7 +90,7 @@ export const AchievementsScreen: React.FC = () => {
               d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
             />
           </svg>
-          <span className="absolute text-xs font-bold font-mono text-white">36%</span>
+          <span className="absolute text-xs font-bold font-mono text-white">{unlockedPercent}%</span>
         </div>
       </div>
 
@@ -110,7 +112,7 @@ export const AchievementsScreen: React.FC = () => {
 
       <div className="space-y-3">
         {filtered.map(item => {
-          const progressPercent = Math.min(100, Math.round((item.progress / item.target) * 100));
+          const progressPercent = Math.min(100, Math.round((item.progress / Math.max(1, item.target)) * 100));
 
           return (
             <div

@@ -1,7 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
-  Zap, 
   HelpCircle, 
   Users, 
   Flame, 
@@ -15,6 +14,9 @@ import { VdcCoin } from '../../assets/VdcLogo';
 
 export const EarnHubScreen: React.FC = () => {
   const { user, navigateTo } = useApp();
+
+  const hours = Math.floor(user.sessionRemainingSeconds / 3600);
+  const minutes = Math.floor((user.sessionRemainingSeconds % 3600) / 60);
 
   return (
     <div className="w-full flex-1 px-4 py-4 space-y-4 pb-8">
@@ -34,7 +36,7 @@ export const EarnHubScreen: React.FC = () => {
             <div className="text-2xl font-extrabold text-white font-mono text-gold-glow">
               +{user.todayEarnings.toFixed(2)} VDC
             </div>
-            <div className="text-xs text-slate-400 mt-0.5">Accumulated Today</div>
+            <div className="text-xs text-slate-400 mt-0.5">Verified Earnings Today</div>
           </div>
           <button
             onClick={() => navigateTo('rewards')}
@@ -57,14 +59,16 @@ export const EarnHubScreen: React.FC = () => {
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-[#FF9933]/10 border border-[#FF9933]/30 flex items-center justify-center p-1 shrink-0">
-              <VdcCoin size={40} glow={false} />
+              <VdcCoin size={40} glow={user.miningActive} />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-white">Daily Mining</h3>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-mono font-semibold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Active
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold flex items-center gap-1 ${
+                  user.miningActive ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-700/50 text-slate-400'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${user.miningActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+                  {user.miningActive ? 'Active' : 'Standby'}
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -73,15 +77,15 @@ export const EarnHubScreen: React.FC = () => {
             </div>
           </div>
           <div className="text-right">
-            <span className="text-sm font-bold text-[#FF9933] font-mono">+18 VDC</span>
-            <div className="text-[10px] text-slate-500 font-mono">Per Day</div>
+            <span className="text-sm font-bold text-[#FF9933] font-mono">+{user.miningRatePerHour.toFixed(2)}/h</span>
+            <div className="text-[10px] text-slate-500 font-mono">VDC Rate</div>
           </div>
         </div>
 
         <div className="flex items-center justify-between pt-1 border-t border-white/5">
           <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
             <Clock className="w-3.5 h-3.5 text-[#FF9933]" />
-            <span>23h 42m remaining</span>
+            <span>{user.miningActive ? `${hours}h ${minutes}m remaining` : 'Ready to start'}</span>
           </div>
           <button
             onClick={() => navigateTo('mining')}
@@ -104,23 +108,23 @@ export const EarnHubScreen: React.FC = () => {
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-white">VandeQuiz</h3>
                 <span className="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 text-[10px] font-mono font-semibold">
-                  Ready
+                  Daily
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Test your knowledge and earn based on your performance.
+                Complete educational Web3 quizzes and earn verified tokens.
               </p>
             </div>
           </div>
           <div className="text-right">
-            <span className="text-sm font-bold text-cyan-400 font-mono">Up to +50 VDC</span>
+            <span className="text-sm font-bold text-cyan-400 font-mono">Up to +12 VDC</span>
             <div className="text-[10px] text-slate-500 font-mono">10 Questions</div>
           </div>
         </div>
 
         <div className="flex items-center justify-between pt-1 border-t border-white/5">
           <span className="text-xs text-slate-400 font-mono">
-            Today: <span className="text-white font-medium">Blockchain & Technology</span>
+            Today: <span className="text-white font-medium">Blockchain & Participation</span>
           </span>
           <button
             onClick={() => navigateTo('quiz')}
@@ -143,23 +147,23 @@ export const EarnHubScreen: React.FC = () => {
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-white">VandeCircle</h3>
                 <span className="px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 text-[10px] font-mono font-semibold">
-                  8 / 10 Members
+                  {user.circleMembersCount} / {user.circleMaxMembers} Peers
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Connect with verified peers to amplify network trust.
+                Connect with verified peers to amplify mutual network trust.
               </p>
             </div>
           </div>
           <div className="text-right">
-            <span className="text-sm font-bold text-purple-400 font-mono">+12.50 VDC</span>
-            <div className="text-[10px] text-slate-500 font-mono">Community</div>
+            <span className="text-sm font-bold text-purple-400 font-mono">+{user.circleEarningsToday.toFixed(2)} VDC</span>
+            <div className="text-[10px] text-slate-500 font-mono">Daily Boost</div>
           </div>
         </div>
 
         <div className="flex items-center justify-between pt-1 border-t border-white/5">
           <span className="text-xs text-slate-400 font-mono">
-            Strength: <span className="text-purple-300 font-bold">82% Optimal</span>
+            Trust Strength: <span className="text-purple-300 font-bold">{user.circleStrengthPercent}%</span>
           </span>
           <button
             onClick={() => navigateTo('circle')}
@@ -182,23 +186,23 @@ export const EarnHubScreen: React.FC = () => {
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-white">Streak & Bonuses</h3>
                 <span className="px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 text-[10px] font-mono font-semibold">
-                  14 Days 🔥
+                  Day {user.streakDays} 🔥
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Log in and participate daily for exponential milestone boosts.
+                Log in and check in daily for cumulative milestone rewards.
               </p>
             </div>
           </div>
           <div className="text-right">
-            <span className="text-sm font-bold text-rose-400 font-mono">+50 VDC</span>
-            <div className="text-[10px] text-slate-500 font-mono">In 2 Days</div>
+            <span className="text-sm font-bold text-rose-400 font-mono">Up to +150 VDC</span>
+            <div className="text-[10px] text-slate-500 font-mono">Milestones</div>
           </div>
         </div>
 
         <div className="flex items-center justify-between pt-1 border-t border-white/5">
           <span className="text-xs text-slate-400 font-mono">
-            Protection: <span className="text-rose-300 font-semibold">1 Shield Active</span>
+            Protection: <span className="text-rose-300 font-semibold">{user.streakShields} Shield Available</span>
           </span>
           <button
             onClick={() => navigateTo('streaks')}
@@ -221,7 +225,7 @@ export const EarnHubScreen: React.FC = () => {
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-white">Achievements</h3>
                 <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 text-[10px] font-mono font-semibold">
-                  18 / 50
+                  {user.achievementsUnlocked} / {user.totalAchievements} Badges
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -230,14 +234,14 @@ export const EarnHubScreen: React.FC = () => {
             </div>
           </div>
           <div className="text-right">
-            <span className="text-sm font-bold text-amber-400 font-mono">+5.00 VDC</span>
-            <div className="text-[10px] text-slate-500 font-mono">Ready to claim</div>
+            <span className="text-sm font-bold text-amber-400 font-mono">Milestones</span>
+            <div className="text-[10px] text-slate-500 font-mono">On-Chain</div>
           </div>
         </div>
 
         <div className="flex items-center justify-between pt-1 border-t border-white/5">
           <span className="text-xs text-slate-400 font-mono">
-            Next: <span className="text-white font-medium">Knowledge Seeker (73/100)</span>
+            XP Progress: <span className="text-white font-medium">{user.xp} / {user.xpMax} XP</span>
           </span>
           <button
             onClick={() => navigateTo('achievements')}
@@ -260,7 +264,7 @@ export const EarnHubScreen: React.FC = () => {
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-white">Invite & Network</h3>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 text-[10px] font-mono font-semibold">
-                  127 Members
+                  {user.referralCount} Members
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -269,14 +273,14 @@ export const EarnHubScreen: React.FC = () => {
             </div>
           </div>
           <div className="text-right">
-            <span className="text-sm font-bold text-emerald-400 font-mono">386.40 VDC</span>
+            <span className="text-sm font-bold text-emerald-400 font-mono">{user.referralRewardsTotal.toFixed(2)} VDC</span>
             <div className="text-[10px] text-slate-500 font-mono">Total Earned</div>
           </div>
         </div>
 
         <div className="flex items-center justify-between pt-1 border-t border-white/5">
           <span className="text-xs text-slate-400 font-mono">
-            Tier 3 Progress: <span className="text-emerald-300 font-bold">85%</span>
+            Code: <span className="text-emerald-300 font-bold">{user.referralCode}</span>
           </span>
           <button
             onClick={() => navigateTo('referral')}

@@ -8,17 +8,37 @@ import {
   Flame, 
   Users, 
   Award, 
-  Globe, 
   Clock, 
   CheckCircle2, 
-  Info,
-  Search
+  Search,
+  Gift
 } from 'lucide-react';
 
 export const RewardsCenterScreen: React.FC = () => {
   const { user, rewardsHistory, navigateBack } = useApp();
-  const [filterCategory] = useState<string>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Dynamically calculate category earnings
+  const miningTotal = rewardsHistory
+    .filter(t => t.category === 'mining' && t.status === 'completed')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const quizTotal = rewardsHistory
+    .filter(t => t.category === 'quiz' && t.status === 'completed')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const streakTotal = rewardsHistory
+    .filter(t => t.category === 'streak' && t.status === 'completed')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const referralTotal = rewardsHistory
+    .filter(t => t.category === 'referral' && t.status === 'completed')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const milestonesTotal = rewardsHistory
+    .filter(t => (t.category === 'achievement' || t.category === 'welcome') && t.status === 'completed')
+    .reduce((sum, t) => sum + t.amount, 0);
 
   const filteredHistory = rewardsHistory.filter(item => {
     const matchesCat = filterCategory === 'all' || item.category === filterCategory;
@@ -26,6 +46,16 @@ export const RewardsCenterScreen: React.FC = () => {
                           item.activity.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCat && matchesSearch;
   });
+
+  const categories = [
+    { id: 'all', label: 'All' },
+    { id: 'mining', label: 'Mining' },
+    { id: 'quiz', label: 'Quiz' },
+    { id: 'streak', label: 'Streak' },
+    { id: 'referral', label: 'Referral' },
+    { id: 'welcome', label: 'Welcome' },
+    { id: 'achievement', label: 'Badges' },
+  ];
 
   return (
     <div className="w-full flex-1 px-4 py-3 space-y-4 pb-8">
@@ -50,7 +80,7 @@ export const RewardsCenterScreen: React.FC = () => {
         <div className="absolute -left-10 -bottom-10 w-36 h-36 rounded-full bg-cyan-500/15 blur-3xl pointer-events-none" />
 
         <div className="text-[11px] font-mono tracking-widest text-[#FFB86C] uppercase font-semibold">
-          Total Available VDC
+          Total Verified Balance (From Ledger)
         </div>
         <div className="flex items-baseline justify-center gap-1.5">
           <span className="text-4xl font-extrabold text-white font-mono text-gold-glow">
@@ -66,92 +96,61 @@ export const RewardsCenterScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* Itemized Breakdown */}
+      {/* Itemized Dynamic Breakdown from Ledger */}
       <div className="p-4 rounded-2xl glass-panel border border-white/10 space-y-3">
         <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-          Today's Earnings Breakdown
+          Cumulative Earnings Breakdown
         </h3>
 
         <div className="space-y-2 text-xs">
           <div className="flex items-center justify-between py-1 border-b border-white/5">
             <div className="flex items-center gap-2">
               <Zap className="w-3.5 h-3.5 text-[#FF9933]" />
-              <span className="text-slate-300">Daily Mining</span>
+              <span className="text-slate-300">Daily PoP Mining</span>
             </div>
-            <span className="font-mono font-bold text-white">+18.00 VDC</span>
+            <span className="font-mono font-bold text-white">+{miningTotal.toFixed(2)} VDC</span>
           </div>
 
           <div className="flex items-center justify-between py-1 border-b border-white/5">
             <div className="flex items-center gap-2">
               <HelpCircle className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="text-slate-300">Quiz (8/10)</span>
+              <span className="text-slate-300">Educational VandeQuiz</span>
             </div>
-            <span className="font-mono font-bold text-white">+10.00 VDC</span>
+            <span className="font-mono font-bold text-white">+{quizTotal.toFixed(2)} VDC</span>
           </div>
 
           <div className="flex items-center justify-between py-1 border-b border-white/5">
             <div className="flex items-center gap-2">
               <Flame className="w-3.5 h-3.5 text-rose-400" />
-              <span className="text-slate-300">Streak Bonus</span>
+              <span className="text-slate-300">Participation Streaks</span>
             </div>
-            <span className="font-mono font-bold text-white">+5.00 VDC</span>
+            <span className="font-mono font-bold text-white">+{streakTotal.toFixed(2)} VDC</span>
           </div>
 
           <div className="flex items-center justify-between py-1 border-b border-white/5">
             <div className="flex items-center gap-2">
-              <Users className="w-3.5 h-3.5 text-purple-400" />
-              <span className="text-slate-300">VandeCircle</span>
+              <Users className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-slate-300">Referral Network</span>
             </div>
-            <span className="font-mono font-bold text-white">+4.50 VDC</span>
-          </div>
-
-          <div className="flex items-center justify-between py-1 border-b border-white/5">
-            <div className="flex items-center gap-2">
-              <Award className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-slate-300">Achievements</span>
-            </div>
-            <span className="font-mono font-bold text-white">+5.00 VDC</span>
+            <span className="font-mono font-bold text-white">+{referralTotal.toFixed(2)} VDC</span>
           </div>
 
           <div className="flex items-center justify-between py-1">
             <div className="flex items-center gap-2">
-              <Globe className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-slate-300">Community</span>
+              <Gift className="w-3.5 h-3.5 text-purple-400" />
+              <span className="text-slate-300">Welcome & Milestones</span>
             </div>
-            <span className="font-mono font-semibold text-slate-500">+0.00 VDC</span>
+            <span className="font-mono font-bold text-white">+{milestonesTotal.toFixed(2)} VDC</span>
           </div>
         </div>
       </div>
 
-      {/* Pending Rewards Card */}
-      <div className="p-4 rounded-2xl bg-[#141A28] border border-cyan-500/30 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-mono text-slate-300 uppercase">
-            <Clock className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Pending Rewards</span>
-          </div>
-          <span className="text-base font-bold text-cyan-300 font-mono">
-            {user.pendingRewards.toFixed(2)} VDC
-          </span>
-        </div>
-
-        <div className="flex items-start gap-2 pt-1 text-[11px] text-slate-400 leading-relaxed">
-          <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-          <p>
-            Some rewards may remain pending until eligibility and network requirements are satisfied, such as peer circle verification and ongoing activity criteria.
-          </p>
-        </div>
-      </div>
-
-      {/* Reward History Ledger */}
+      {/* Transaction History Filter & Search */}
       <div className="space-y-3 pt-1">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-            Reward History Ledger
+            Ledger Transactions ({rewardsHistory.length})
           </h3>
-          <span className="text-[11px] text-slate-400 font-mono">
-            {filteredHistory.length} Entries
-          </span>
         </div>
 
         <div className="relative">
@@ -160,47 +159,68 @@ export const RewardsCenterScreen: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Filter reward activity..."
-            className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-[#111420] border border-white/10 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#FF9933] font-mono"
+            placeholder="Search transactions..."
+            className="w-full pl-8 pr-3 py-2 rounded-xl bg-[#111420] border border-white/10 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#FF9933]"
           />
         </div>
 
-        <div className="space-y-2">
-          {filteredHistory.map(tx => (
-            <div
-              key={tx.id}
-              className="p-3 rounded-2xl bg-[#111420] border border-white/10 hover:border-white/20 transition-all flex items-center justify-between"
+        {/* Category Pills */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {categories.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setFilterCategory(cat.id)}
+              className={`px-3 py-1 rounded-xl text-[11px] font-mono whitespace-nowrap transition-all ${
+                filterCategory === cat.id
+                  ? 'bg-[#FF9933] text-black font-bold'
+                  : 'bg-white/5 text-slate-400 hover:text-white border border-white/5'
+              }`}
             >
-              <div className="flex items-center gap-2.5">
-                <div className={`p-2 rounded-xl border ${
-                  tx.status === 'completed'
-                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                    : 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30'
-                }`}>
-                  {tx.status === 'completed' ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-                </div>
-
-                <div>
-                  <div className="text-xs font-bold text-white">{tx.title}</div>
-                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                    {tx.timestamp} • {tx.activity}
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-right">
-                <span className={`text-xs font-mono font-bold ${
-                  tx.status === 'completed' ? 'text-[#FF9933]' : 'text-cyan-300'
-                }`}>
-                  +{tx.amount.toFixed(2)} VDC
-                </span>
-                <div className="text-[9px] font-mono text-slate-500 uppercase">
-                  {tx.status}
-                </div>
-              </div>
-            </div>
+              {cat.label}
+            </button>
           ))}
         </div>
+
+        {/* Transactions List */}
+        {filteredHistory.length === 0 ? (
+          <div className="p-6 rounded-2xl bg-[#111420] border border-white/10 text-center space-y-1">
+            <Clock className="w-6 h-6 text-slate-500 mx-auto" />
+            <p className="text-xs text-slate-400">No transactions found in this category.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {filteredHistory.map(tx => (
+              <div
+                key={tx.id}
+                className="p-3 rounded-2xl bg-[#111420] border border-white/10 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-[#FF9933]">
+                    {tx.category === 'mining' ? <Zap className="w-4 h-4" /> :
+                     tx.category === 'quiz' ? <HelpCircle className="w-4 h-4 text-cyan-400" /> :
+                     tx.category === 'streak' ? <Flame className="w-4 h-4 text-rose-400" /> :
+                     tx.category === 'referral' ? <Users className="w-4 h-4 text-emerald-400" /> :
+                     <Award className="w-4 h-4 text-purple-400" />}
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-white flex items-center gap-1">
+                      <span>{tx.title}</span>
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    </div>
+                    <div className="text-[10px] text-slate-400">{tx.activity} • {tx.timestamp}</div>
+                  </div>
+                </div>
+
+                <div className="text-right font-mono">
+                  <span className="text-xs font-extrabold text-[#FF9933]">
+                    +{Number(tx.amount).toFixed(2)} VDC
+                  </span>
+                  <div className="text-[9px] text-emerald-400 font-semibold">VERIFIED</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

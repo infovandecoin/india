@@ -20,21 +20,32 @@ export const VandeCircleScreen: React.FC = () => {
     navigateBack, 
     showToast,
     isInviteModalOpen,
-    setInviteModalOpen 
+    setInviteModalOpen,
+    addCirclePeer 
   } = useApp();
 
   const [inviteSearch, setInviteSearch] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
 
-  const sampleContacts = [
-    { name: 'Kavita Menon', handle: '@kavita_m', phone: '+91 98201 •••••' },
-    { name: 'David Miller', handle: '@david_m', phone: '+1 415 555 ••••' },
-    { name: 'Vikram Joshi', handle: '@vikram_j', phone: '+91 99882 •••••' },
-    { name: 'Zainab Al-Mansoor', handle: '@zainab_vdc', phone: '+971 50 •••••••' },
+  const sampleSuggested = [
+    { name: 'Aarav Sharma', handle: '@aarav_vdc' },
+    { name: 'Priya Patel', handle: '@priya_p' },
+    { name: 'Kavita Menon', handle: '@kavita_m' },
+    { name: 'Rohan Gupta', handle: '@rohan_g' },
   ];
 
-  const handleSendInvite = (name: string) => {
-    setInviteModalOpen(false);
-    showToast(`Circle invitation sent to ${name}!`, 'gold');
+  const handleAddMember = async (handle: string) => {
+    if (!handle.trim()) {
+      showToast('Please enter a VandeID handle or code', 'info');
+      return;
+    }
+    setIsAdding(true);
+    const result = await addCirclePeer(handle.trim());
+    setIsAdding(false);
+    if (result.success) {
+      setInviteSearch('');
+      setInviteModalOpen(false);
+    }
   };
 
   return (
@@ -52,7 +63,7 @@ export const VandeCircleScreen: React.FC = () => {
         <button
           onClick={() => setInviteModalOpen(true)}
           className="p-2 rounded-xl bg-[#FF9933]/15 hover:bg-[#FF9933]/25 border border-[#FF9933]/30 text-[#FF9933] transition-all"
-          title="Invite trusted member"
+          title="Add trusted member"
         >
           <UserPlus className="w-4 h-4" />
         </button>
@@ -63,7 +74,7 @@ export const VandeCircleScreen: React.FC = () => {
           Build Your Circle
         </h2>
         <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-xs mx-auto">
-          Connect with people you trust and grow the VandeCoin community.
+          Connect with trusted peers to establish mutual validator security and increase your mining rate.
         </p>
       </div>
 
@@ -87,12 +98,12 @@ export const VandeCircleScreen: React.FC = () => {
               </span>
             </div>
             <span className="text-[11px] font-bold text-white mt-1">You</span>
-            <span className="text-[9px] font-mono text-[#FF9933] font-semibold">82% Trust</span>
+            <span className="text-[9px] font-mono text-[#FF9933] font-semibold">{user.circleStrengthPercent}% Trust</span>
           </div>
 
           {/* Connected Peripheral Circle Members orbiting */}
           {circleMembers.slice(0, 8).map((member, index) => {
-            const angle = (index / 8) * 2 * Math.PI - Math.PI / 2;
+            const angle = (index / Math.max(1, circleMembers.length)) * 2 * Math.PI - Math.PI / 2;
             const radius = 98;
             const x = Math.round(Math.cos(angle) * radius);
             const y = Math.round(Math.sin(angle) * radius);
@@ -100,123 +111,118 @@ export const VandeCircleScreen: React.FC = () => {
             return (
               <div
                 key={member.id}
-                onClick={() => {
-                  showToast(`${member.name} contributes +${member.contributionPerHour.toFixed(2)} VDC/h`, 'info');
+                className="absolute z-20 flex flex-col items-center transition-transform duration-500"
+                style={{
+                  transform: `translate(${x}px, ${y}px)`,
                 }}
-                className="absolute cursor-pointer group transition-transform hover:scale-125 z-10"
-                style={{ transform: `translate(${x}px, ${y}px)` }}
-                title={`${member.name} (${member.status})`}
               >
-                <div className="relative p-0.5 rounded-full bg-[#181C2B] border border-white/20 group-hover:border-[#FF9933] shadow-md transition-all">
+                <div className="relative p-0.5 rounded-full bg-[#1A1F30] border border-[#FF9933]/40 shadow-md">
                   <img
                     src={member.avatar}
                     alt={member.name}
                     className="w-8 h-8 rounded-full object-cover"
                   />
-                  {member.verified && (
-                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-cyan-400 border border-black" />
-                  )}
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-black" />
                 </div>
+                <span className="text-[9px] font-mono text-slate-300 font-medium max-w-[50px] truncate text-center mt-0.5">
+                  {member.name.split(' ')[0]}
+                </span>
               </div>
             );
           })}
         </div>
+      </div>
 
-        <div className="flex items-center gap-3 mt-2">
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/15 border border-purple-500/30 text-xs font-mono">
-            <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
-            <span className="text-slate-300">Circle Strength:</span>
-            <span className="text-purple-300 font-bold">{user.circleStrengthPercent}%</span>
+      {/* Circle Stats Summary */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="p-3 rounded-2xl bg-[#111420] border border-white/10 text-center">
+          <div className="text-[10px] font-mono text-slate-400 uppercase">Trust Network</div>
+          <div className="text-base font-bold text-white font-mono mt-1">
+            {user.circleMembersCount} / {user.circleMaxMembers}
           </div>
+          <div className="text-[10px] text-slate-500">Verified Peers</div>
+        </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FF9933]/15 border border-[#FF9933]/30 text-xs font-mono">
-            <Users className="w-3.5 h-3.5 text-[#FF9933]" />
-            <span className="text-white font-bold">{user.circleMembersCount} / {user.circleMaxMembers}</span>
-            <span className="text-slate-400">Members</span>
+        <div className="p-3 rounded-2xl bg-[#111420] border border-white/10 text-center">
+          <div className="text-[10px] font-mono text-slate-400 uppercase">Circle Strength</div>
+          <div className="text-base font-bold text-emerald-400 font-mono mt-1">
+            {user.circleStrengthPercent}%
           </div>
+          <div className="text-[10px] text-slate-500">Sybil Resistance</div>
+        </div>
+
+        <div className="p-3 rounded-2xl bg-[#111420] border border-white/10 text-center">
+          <div className="text-[10px] font-mono text-slate-400 uppercase">Bonus Rate</div>
+          <div className="text-base font-bold text-[#FF9933] font-mono mt-1">
+            +{(Math.min(user.circleMembersCount, 5) * 0.02).toFixed(2)}/h
+          </div>
+          <div className="text-[10px] text-slate-500">Mining Boost</div>
         </div>
       </div>
 
-      <button
-        onClick={() => setInviteModalOpen(true)}
-        className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-[#8B5CF6] via-[#7C3AED] to-[#6D28D9] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-purple-900/30 hover:brightness-110 active:scale-98 transition-all"
-      >
-        <UserPlus className="w-4 h-4" />
-        <span>INVITE TO CIRCLE</span>
-      </button>
-
-      <div className="p-4 rounded-2xl glass-panel-gold border border-[#FF9933]/30 flex items-center justify-between">
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
-            Circle Rewards
-          </div>
-          <div className="text-xl font-extrabold text-[#FF9933] font-mono text-gold-glow mt-0.5">
-            +{user.circleEarningsToday.toFixed(2)} VDC
-          </div>
-          <p className="text-[11px] text-slate-300 mt-0.5">
-            Rewards earned from your active circle members
-          </p>
-        </div>
-        <div className="p-2.5 rounded-2xl bg-[#FF9933]/20 text-[#FF9933] border border-[#FF9933]/40">
-          <Sparkles className="w-6 h-6 animate-pulse" />
-        </div>
-      </div>
-
-      <div className="space-y-2">
+      {/* Member List Section */}
+      <div className="space-y-2 pt-2">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-            Circle Members ({circleMembers.length} / 10)
+            Connected Members ({circleMembers.length})
           </h3>
-          <span className="text-[11px] text-slate-400 font-mono">2 Slots Available</span>
+          <button
+            onClick={() => setInviteModalOpen(true)}
+            className="text-xs text-[#FFB86C] font-semibold hover:underline flex items-center gap-1"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Add Member</span>
+          </button>
         </div>
 
-        <div className="space-y-2">
-          {circleMembers.map(member => (
-            <div
-              key={member.id}
-              className="p-3 rounded-2xl bg-[#121522] border border-white/10 hover:border-white/20 transition-all flex items-center justify-between"
+        {circleMembers.length === 0 ? (
+          <div className="p-6 rounded-2xl bg-[#111420] border border-white/10 text-center space-y-2">
+            <Users className="w-8 h-8 text-slate-500 mx-auto" />
+            <p className="text-xs text-slate-300">No circle members yet.</p>
+            <p className="text-[11px] text-slate-500">Add trusted peers to increase your mining speed by up to +0.10 VDC/h!</p>
+            <button
+              onClick={() => setInviteModalOpen(true)}
+              className="mt-2 px-4 py-2 rounded-xl bg-[#FF9933] text-black text-xs font-bold"
             >
-              <div className="flex items-center gap-3">
-                <div className="relative">
+              Add First Member
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {circleMembers.map(member => (
+              <div
+                key={member.id}
+                className="p-3 rounded-2xl bg-[#111420] border border-white/10 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
                   <img
                     src={member.avatar}
                     alt={member.name}
-                    className="w-10 h-10 rounded-full object-cover border border-white/15"
+                    className="w-10 h-10 rounded-full object-cover border border-white/10"
                   />
-                  {member.verified && (
-                    <span className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-[#08090C]">
-                      <CheckCircle2 className="w-3 h-3 text-cyan-400 fill-black" />
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-white">{member.name}</span>
-                    <span className="text-[10px] text-slate-400 font-mono">{member.username}</span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-mono">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      Active
-                    </span>
-                    <span className="text-slate-600">•</span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      Trust {member.trustScore}%
-                    </span>
+                  <div>
+                    <div className="text-xs font-bold text-white flex items-center gap-1">
+                      <span>{member.name}</span>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
+                      <span>{member.username}</span>
+                      <span>•</span>
+                      <span className="text-emerald-400 font-semibold">Trust {member.trustScore}%</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="text-right">
-                <span className="text-xs font-bold text-[#FF9933] font-mono">
-                  +{member.contributionPerHour.toFixed(3)}/h
-                </span>
-                <div className="text-[10px] text-slate-500 font-mono">VDC rate</div>
+                <div className="text-right font-mono">
+                  <span className="text-xs font-bold text-[#FF9933]">
+                    +{member.contributionPerHour.toFixed(2)}/h
+                  </span>
+                  <div className="text-[9px] text-slate-500">VDC boost</div>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-start gap-2.5 text-slate-400 text-xs">
@@ -226,13 +232,14 @@ export const VandeCircleScreen: React.FC = () => {
         </p>
       </div>
 
+      {/* Add Member Modal */}
       {isInviteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
           <div className="w-full max-w-sm rounded-3xl bg-[#141826] border border-white/20 p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
                 <UserPlus className="w-4 h-4 text-[#FF9933]" />
-                <h3 className="text-sm font-bold text-white">Add Trusted Member</h3>
+                <h3 className="text-sm font-bold text-white">Add Trusted Peer</h3>
               </div>
               <button
                 onClick={() => setInviteModalOpen(false)}
@@ -243,50 +250,51 @@ export const VandeCircleScreen: React.FC = () => {
             </div>
 
             <p className="text-xs text-slate-400">
-              Select from your verified contacts or enter a VandeID to send an endorsement request.
+              Enter any pioneer's VandeID handle (e.g. @aarav_vdc) or referral code to link them to your inner trust circle.
             </p>
 
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                value={inviteSearch}
-                onChange={e => setInviteSearch(e.target.value)}
-                placeholder="Search by name or @VandeID..."
-                className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#0D101A] border border-white/15 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#FF9933]"
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={inviteSearch}
+                  onChange={e => setInviteSearch(e.target.value)}
+                  placeholder="Enter @handle or code..."
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#0D101A] border border-white/15 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#FF9933]"
+                />
+              </div>
+              <button
+                onClick={() => handleAddMember(inviteSearch)}
+                disabled={isAdding}
+                className="px-4 py-2 rounded-xl bg-[#FF9933] text-black font-bold text-xs hover:brightness-110 active:scale-95 disabled:opacity-50"
+              >
+                {isAdding ? 'Adding...' : 'Add'}
+              </button>
             </div>
 
-            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-              {sampleContacts.map(contact => (
-                <div
-                  key={contact.handle}
-                  className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between hover:border-white/20 transition-all"
-                >
-                  <div>
-                    <div className="text-xs font-bold text-white">{contact.name}</div>
-                    <div className="text-[10px] text-slate-400 font-mono">{contact.handle} • {contact.phone}</div>
-                  </div>
-                  <button
-                    onClick={() => handleSendInvite(contact.name)}
-                    className="px-3 py-1 rounded-lg bg-[#FF9933] text-black text-xs font-bold hover:brightness-110 active:scale-95 transition-all"
+            <div className="space-y-1 pt-1">
+              <div className="text-[10px] font-mono text-slate-400 uppercase">Suggested Pioneers</div>
+              <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                {sampleSuggested.map(s => (
+                  <div
+                    key={s.handle}
+                    className="p-2 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between text-xs"
                   >
-                    Invite
-                  </button>
-                </div>
-              ))}
+                    <div>
+                      <div className="font-bold text-white">{s.name}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">{s.handle}</div>
+                    </div>
+                    <button
+                      onClick={() => handleAddMember(s.handle)}
+                      className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-[#FF9933] hover:text-black text-white text-[11px] font-semibold transition-all"
+                    >
+                      Connect
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
-
-            <button
-              onClick={() => {
-                setInviteModalOpen(false);
-                showToast('Invite link shared!', 'info');
-              }}
-              className="w-full py-2.5 rounded-xl bg-white/10 border border-white/15 text-white font-semibold text-xs flex items-center justify-center gap-2 hover:bg-white/15"
-            >
-              <Share2 className="w-3.5 h-3.5" />
-              <span>Share Invite Link Via WhatsApp / SMS</span>
-            </button>
           </div>
         </div>
       )}

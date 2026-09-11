@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   ArrowLeft, 
@@ -8,20 +8,15 @@ import {
   Sparkles, 
   CheckCircle2, 
   Calendar as CalendarIcon,
-  Gift
+  Gift,
+  Lock
 } from 'lucide-react';
 
 export const StreaksScreen: React.FC = () => {
-  const { user, navigateBack, claimStreakBonus, showToast } = useApp();
-  const [hasClaimedToday, setHasClaimedToday] = useState(false);
+  const { user, navigateBack, claimStreakBonus } = useApp();
 
   const handleContinueStreak = () => {
-    if (!hasClaimedToday) {
-      setHasClaimedToday(true);
-      claimStreakBonus();
-    } else {
-      showToast('Today\'s streak already verified! Come back tomorrow for Day 15.', 'info');
-    }
+    claimStreakBonus();
   };
 
   const days = Array.from({ length: 30 }, (_, i) => i + 1);
@@ -53,35 +48,35 @@ export const StreaksScreen: React.FC = () => {
         </div>
 
         <p className="text-xs text-slate-300 font-sans">
-          Keep participating every day to maintain momentum.
+          Participate daily to maintain momentum and earn cumulative multipliers.
         </p>
 
         <div className="pt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#172238] border border-cyan-500/30 text-xs text-cyan-300 font-mono">
           <Shield className="w-4 h-4 text-cyan-400 fill-cyan-400/20" />
-          <span>{user.streakShields} Streak Shield Available</span>
+          <span>{user.streakShields} Streak Shield{user.streakShields !== 1 ? 's' : ''} Available</span>
         </div>
       </div>
 
       <div className="p-4 rounded-2xl glass-panel border border-white/10 space-y-2.5">
         <div className="flex items-center justify-between text-xs">
           <span className="font-bold text-white font-mono uppercase">
-            Next Milestone: 16 days
+            Next Milestone: {user.streakDays < 7 ? 'Day 7 (+15 VDC)' : user.streakDays < 14 ? 'Day 14 (+30 VDC)' : 'Day 30 (+150 VDC)'}
           </span>
           <span className="text-[#FFB86C] font-mono font-semibold">
-            Day 30 (+150 VDC)
+            {Math.max(0, (user.streakDays < 7 ? 7 : user.streakDays < 14 ? 14 : 30) - user.streakDays)} days left
           </span>
         </div>
 
         <div className="w-full h-2.5 rounded-full bg-white/10 overflow-hidden">
           <div 
             className="h-full rounded-full bg-gradient-to-r from-[#FF9933] via-rose-500 to-purple-500 shadow-gold-glow transition-all duration-700"
-            style={{ width: `${(user.streakDays / 30) * 100}%` }}
+            style={{ width: `${Math.min(100, (user.streakDays / 30) * 100)}%` }}
           />
         </div>
 
         <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-          <span>Day {user.streakDays} (Current)</span>
-          <span>16 / 30 Days Remaining</span>
+          <span>Day {user.streakDays} Active</span>
+          <span>{user.streakDays} / 30 Days</span>
         </div>
       </div>
 
@@ -93,7 +88,7 @@ export const StreaksScreen: React.FC = () => {
             <span>30-Day Participation Calendar</span>
           </div>
           <span className="text-[11px] text-emerald-400 font-mono font-semibold">
-            14 Active Days
+            {user.streakDays} Active Days
           </span>
         </div>
 
@@ -128,7 +123,7 @@ export const StreaksScreen: React.FC = () => {
 
                 {isMilestone && (
                   <span className="absolute -top-1.5 -right-1 px-1 rounded bg-[#FF9933] text-black text-[8px] font-extrabold font-mono">
-                    {day === 7 ? '+25' : day === 14 ? '+50' : '+150'}
+                    {day === 7 ? '+15' : day === 14 ? '+30' : '+150'}
                   </span>
                 )}
               </div>
@@ -144,48 +139,61 @@ export const StreaksScreen: React.FC = () => {
         </h3>
 
         <div className="space-y-2">
-          <div className="p-3 rounded-xl bg-[#121E19] border border-emerald-500/30 flex items-center justify-between text-xs">
+          <div className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
+            user.streakDays >= 7 ? 'bg-[#121E19] border-emerald-500/30' : 'bg-[#10121A] border-white/10'
+          }`}>
             <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              {user.streakDays >= 7 ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : (
+                <Lock className="w-4 h-4 text-slate-500 shrink-0" />
+              )}
               <div>
                 <div className="font-bold text-white">7 Days Streak</div>
-                <div className="text-[10px] text-slate-400 font-mono">Consistency badge earned</div>
+                <div className="text-[10px] text-slate-400 font-mono">Early Explorer Milestone</div>
               </div>
             </div>
-            <span className="font-mono font-bold text-emerald-400">+25 VDC CLAIMED</span>
+            <span className={`font-mono font-bold ${user.streakDays >= 7 ? 'text-emerald-400' : 'text-slate-400'}`}>
+              {user.streakDays >= 7 ? '+15 VDC UNLOCKED' : '+15 VDC'}
+            </span>
           </div>
 
-          <div className="p-3 rounded-xl bg-[#241C15] border border-[#FF9933]/50 flex items-center justify-between text-xs shadow-gold-glow">
+          <div className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
+            user.streakDays >= 14 ? 'bg-[#241C15] border-[#FF9933]/50 shadow-gold-glow' : 'bg-[#10121A] border-white/10'
+          }`}>
             <div className="flex items-center gap-2.5">
-              <Flame className="w-4 h-4 text-[#FF9933] fill-[#FF9933] shrink-0" />
+              {user.streakDays >= 14 ? (
+                <Flame className="w-4 h-4 text-[#FF9933] fill-[#FF9933] shrink-0" />
+              ) : (
+                <Lock className="w-4 h-4 text-slate-500 shrink-0" />
+              )}
               <div>
-                <div className="font-bold text-white">14 Days Streak (Today!)</div>
-                <div className="text-[10px] text-[#FFB86C] font-mono">Two weeks unbroken participation</div>
+                <div className="font-bold text-white">14 Days Streak</div>
+                <div className="text-[10px] text-slate-400 font-mono">Two weeks unbroken participation</div>
               </div>
             </div>
-            <span className="font-mono font-bold text-[#FF9933]">+50 VDC CLAIMED</span>
+            <span className={`font-mono font-bold ${user.streakDays >= 14 ? 'text-[#FF9933]' : 'text-slate-400'}`}>
+              {user.streakDays >= 14 ? '+30 VDC UNLOCKED' : '+30 VDC'}
+            </span>
           </div>
 
-          <div className="p-3 rounded-xl bg-[#131624] border border-purple-500/30 flex items-center justify-between text-xs">
+          <div className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
+            user.streakDays >= 30 ? 'bg-[#181324] border-purple-500/40' : 'bg-[#10121A] border-white/10'
+          }`}>
             <div className="flex items-center gap-2.5">
-              <Award className="w-4 h-4 text-purple-400 shrink-0" />
+              {user.streakDays >= 30 ? (
+                <Award className="w-4 h-4 text-purple-400 shrink-0" />
+              ) : (
+                <Lock className="w-4 h-4 text-slate-500 shrink-0" />
+              )}
               <div>
                 <div className="font-bold text-white">30 Days Streak</div>
-                <div className="text-[10px] text-slate-400 font-mono">Unlocks 30-Day Legend Badge</div>
+                <div className="text-[10px] text-slate-400 font-mono">Unlocks 30-Day Legend Badge & Extra Shield</div>
               </div>
             </div>
-            <span className="font-mono font-bold text-purple-400">+150 VDC</span>
-          </div>
-
-          <div className="p-3 rounded-xl bg-[#10121A] border border-white/10 flex items-center justify-between text-xs opacity-75">
-            <div className="flex items-center gap-2.5">
-              <Sparkles className="w-4 h-4 text-slate-400 shrink-0" />
-              <div>
-                <div className="font-bold text-white">90 Days Streak</div>
-                <div className="text-[10px] text-slate-400 font-mono">Founding Elder Status</div>
-              </div>
-            </div>
-            <span className="font-mono font-bold text-slate-400">Special Achievement</span>
+            <span className={`font-mono font-bold ${user.streakDays >= 30 ? 'text-purple-400' : 'text-slate-400'}`}>
+              {user.streakDays >= 30 ? '+150 VDC UNLOCKED' : '+150 VDC'}
+            </span>
           </div>
         </div>
       </div>
@@ -195,7 +203,7 @@ export const StreaksScreen: React.FC = () => {
         className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-rose-500 via-[#FF9933] to-[#F59E0B] text-black font-bold text-sm flex items-center justify-center gap-2 shadow-gold-glow hover:brightness-110 active:scale-98 transition-all"
       >
         <Flame className="w-4 h-4 fill-current" />
-        <span>CONTINUE STREAK</span>
+        <span>CLAIM DAILY STREAK CHECK-IN (+1.00 VDC)</span>
       </button>
     </div>
   );

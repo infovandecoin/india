@@ -1,20 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   ArrowLeft, 
   Copy, 
   Share2, 
-  Users, 
   ShieldCheck, 
   CheckCircle2, 
   Clock, 
   Sparkles, 
   Network,
-  AlertTriangle
+  AlertTriangle,
+  Gift
 } from 'lucide-react';
 
 export const ReferralScreen: React.FC = () => {
-  const { user, navigateBack, copyReferralCode, showToast } = useApp();
+  const { user, navigateBack, copyReferralCode, showToast, redeemReferral } = useApp();
+  const [inviteInput, setInviteInput] = useState('');
+  const [isRedeeming, setIsRedeeming] = useState(false);
 
   const handleShare = () => {
     if (navigator.share) {
@@ -26,6 +28,19 @@ export const ReferralScreen: React.FC = () => {
     } else {
       copyReferralCode();
       showToast('Invite link & code copied to share!', 'gold');
+    }
+  };
+
+  const handleRedeem = async () => {
+    if (!inviteInput.trim()) {
+      showToast('Please enter an invitation code', 'info');
+      return;
+    }
+    setIsRedeeming(true);
+    const res = await redeemReferral(inviteInput.trim());
+    setIsRedeeming(false);
+    if (res.success) {
+      setInviteInput('');
     }
   };
 
@@ -53,7 +68,7 @@ export const ReferralScreen: React.FC = () => {
           Grow the VandeCoin community
         </h2>
         <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-xs mx-auto">
-          Introduce thoughtful contributors to build the future of decentralized participation.
+          Introduce authentic pioneers to build India's sovereign digital participation network.
         </p>
       </div>
 
@@ -86,6 +101,33 @@ export const ReferralScreen: React.FC = () => {
           >
             <Share2 className="w-4 h-4" />
             <span>SHARE INVITE</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Enter Invitation Code (If invited by someone) */}
+      <div className="p-4 rounded-2xl bg-[#111420] border border-white/10 space-y-2">
+        <div className="flex items-center gap-2 text-xs font-bold text-white font-mono">
+          <Gift className="w-4 h-4 text-[#FF9933]" />
+          <span>Have an Invitation Code?</span>
+        </div>
+        <p className="text-[11px] text-slate-400">
+          Enter a friend's referral code to link your account and earn +10.00 VDC welcome bonus.
+        </p>
+        <div className="flex gap-2 pt-1">
+          <input
+            type="text"
+            value={inviteInput}
+            onChange={e => setInviteInput(e.target.value)}
+            placeholder="e.g. VDC-PIONEER-4821"
+            className="flex-1 px-3 py-2 rounded-xl bg-[#0B0D14] border border-white/15 text-xs text-white font-mono uppercase placeholder:text-slate-500 focus:outline-none focus:border-[#FF9933]"
+          />
+          <button
+            onClick={handleRedeem}
+            disabled={isRedeeming}
+            className="px-4 py-2 rounded-xl bg-[#FF9933] text-black font-bold text-xs hover:brightness-110 active:scale-95 disabled:opacity-50"
+          >
+            {isRedeeming ? 'Redeeming...' : 'Redeem'}
           </button>
         </div>
       </div>
@@ -140,103 +182,59 @@ export const ReferralScreen: React.FC = () => {
           Network Progression Tiers
         </h3>
 
-        <div className="p-3.5 rounded-2xl bg-[#111420] border border-emerald-500/30 flex items-center justify-between">
+        <div className={`p-3.5 rounded-2xl border flex items-center justify-between ${
+          user.referralCount >= 5 ? 'bg-[#111420] border-emerald-500/30' : 'bg-[#10121A] border-white/10'
+        }`}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs font-mono">
               L1
             </div>
             <div>
               <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                <span>Level 1: Community Explorer</span>
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Level 1: Community Pioneer</span>
+                {user.referralCount >= 5 && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
               </div>
-              <div className="text-[11px] text-slate-400 font-mono">25 / 25 Members • +50 VDC Bonus</div>
+              <div className="text-[11px] text-slate-400 font-mono">
+                {Math.min(5, user.referralCount)} / 5 Members • +50 VDC Milestone
+              </div>
             </div>
           </div>
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300 font-semibold">
-            COMPLETED
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
+            user.referralCount >= 5 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/5 text-slate-400'
+          }`}>
+            {user.referralCount >= 5 ? 'UNLOCKED' : `${5 - Math.min(5, user.referralCount)} LEFT`}
           </span>
         </div>
 
-        <div className="p-3.5 rounded-2xl bg-[#111420] border border-emerald-500/30 flex items-center justify-between">
+        <div className={`p-3.5 rounded-2xl border flex items-center justify-between ${
+          user.referralCount >= 25 ? 'bg-[#111420] border-emerald-500/30' : 'bg-[#10121A] border-white/10'
+        }`}>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs font-mono">
+            <div className="w-9 h-9 rounded-xl bg-[#FF9933]/20 text-[#FF9933] flex items-center justify-center font-bold text-xs font-mono">
               L2
             </div>
             <div>
               <div className="text-xs font-bold text-white flex items-center gap-1.5">
                 <span>Level 2: Network Builder</span>
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                {user.referralCount >= 25 && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
               </div>
-              <div className="text-[11px] text-slate-400 font-mono">75 / 75 Members • +150 VDC Bonus</div>
+              <div className="text-[11px] text-slate-400 font-mono">
+                {Math.min(25, user.referralCount)} / 25 Members • +150 VDC Milestone
+              </div>
             </div>
           </div>
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300 font-semibold">
-            COMPLETED
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
+            user.referralCount >= 25 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/5 text-slate-400'
+          }`}>
+            {user.referralCount >= 25 ? 'UNLOCKED' : `${25 - Math.min(25, user.referralCount)} LEFT`}
           </span>
-        </div>
-
-        <div className="p-3.5 rounded-2xl bg-[#131726] border border-[#FF9933]/30 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#FF9933]/20 text-[#FF9933] flex items-center justify-center font-bold text-xs font-mono">
-                L3
-              </div>
-              <div>
-                <div className="text-xs font-bold text-white">
-                  Level 3: Ecosystem Pillar
-                </div>
-                <div className="text-[11px] text-slate-400 font-mono">127 / 150 Members • +350 VDC Bonus</div>
-              </div>
-            </div>
-            <span className="text-xs font-mono font-bold text-[#FFB86C]">85%</span>
-          </div>
-
-          <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
-            <div 
-              className="h-full rounded-full bg-gradient-to-r from-[#FFB86C] to-[#FF9933] shadow-gold-glow"
-              style={{ width: '84.6%' }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="p-4 rounded-2xl glass-panel border border-white/10 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-white font-mono uppercase flex items-center gap-1.5">
-            <Network className="w-4 h-4 text-[#FF9933]" />
-            <span>Network Topography</span>
-          </h3>
-          <span className="text-[11px] text-slate-400 font-mono">Tier 1 & Tier 2</span>
-        </div>
-
-        <div className="p-4 rounded-xl bg-black/40 border border-white/5 flex flex-col items-center space-y-3">
-          <div className="px-3 py-1 rounded-full bg-[#FF9933]/20 border border-[#FF9933]/40 text-xs font-bold text-[#FFB86C] font-mono">
-            You (Core Node)
-          </div>
-          <div className="w-0.5 h-4 bg-gradient-to-b from-[#FF9933] to-cyan-400" />
-          
-          <div className="grid grid-cols-3 gap-3 w-full text-center">
-            <div className="p-2 rounded-xl bg-white/5 border border-white/10 text-[11px]">
-              <div className="font-bold text-white">Tier 1</div>
-              <div className="text-[#FF9933] font-mono text-[10px]">68 Direct</div>
-            </div>
-            <div className="p-2 rounded-xl bg-white/5 border border-white/10 text-[11px]">
-              <div className="font-bold text-white">Tier 2</div>
-              <div className="text-cyan-400 font-mono text-[10px]">59 Extended</div>
-            </div>
-            <div className="p-2 rounded-xl bg-white/5 border border-white/10 text-[11px]">
-              <div className="font-bold text-white">Validators</div>
-              <div className="text-purple-400 font-mono text-[10px]">14 Active</div>
-            </div>
-          </div>
         </div>
       </div>
 
       <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 text-slate-400 text-xs flex items-start gap-2.5">
         <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
         <p className="text-[11px] leading-relaxed">
-          <span className="text-slate-200 font-semibold">Ethical Growth Policy:</span> VandeCoin strictly discourages spam, mass automated messaging, or unsolicited invitations. Meaningful participation rewards require verified, active individuals.
+          <span className="text-slate-200 font-semibold">Ethical Growth Policy:</span> VandeCoin strictly discourages spam, bot accounts, or self-referrals. Every invitation is linked to an immutable ledger entry with cryptographic fraud detection.
         </p>
       </div>
     </div>

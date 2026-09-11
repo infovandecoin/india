@@ -7,7 +7,8 @@ import {
   CheckCircle2, 
   RotateCcw, 
   BookOpen, 
-  BrainCircuit
+  BrainCircuit,
+  ArrowRight
 } from 'lucide-react';
 import { triggerConfetti } from '../../utils/confetti';
 import { sounds } from '../../utils/audio';
@@ -21,8 +22,8 @@ export const QuizResultScreen: React.FC = () => {
   } = useApp();
 
   const score = lastQuizResult ? lastQuizResult.score : 8;
-  const vdcEarned = lastQuizResult ? lastQuizResult.vdc : 40.00;
-  const knowledgeScore = 82;
+  const vdcEarned = lastQuizResult ? lastQuizResult.vdc : 10.00;
+  const knowledgeScore = Math.round((score / 10) * 100);
 
   useEffect(() => {
     sounds.playRewardChime();
@@ -52,7 +53,7 @@ export const QuizResultScreen: React.FC = () => {
               BUILT FOR A BRIGHTER INDIA
             </p>
             <p className="text-xs text-slate-300 mt-1 font-sans">
-              Decentralized ecosystem knowledge verified.
+              Decentralized ecosystem knowledge verified and credited.
             </p>
           </div>
 
@@ -71,7 +72,7 @@ export const QuizResultScreen: React.FC = () => {
               <div className="text-2xl font-extrabold text-[#FF9933] font-mono text-gold-glow mt-0.5">
                 +{vdcEarned.toFixed(2)}
               </div>
-              <div className="text-[10px] text-[#FFB86C] font-mono">VDC Credited</div>
+              <div className="text-[10px] text-[#FFB86C] font-mono">VDC in Ledger</div>
             </div>
           </div>
         </div>
@@ -84,7 +85,7 @@ export const QuizResultScreen: React.FC = () => {
               <span>Knowledge Score: {knowledgeScore}%</span>
             </div>
             <span className="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 text-[10px] font-mono font-bold">
-              TIER: ADVANCED
+              {knowledgeScore >= 80 ? 'TIER: ADVANCED' : knowledgeScore >= 50 ? 'TIER: INTERMEDIATE' : 'TIER: EXPLORER'}
             </span>
           </div>
 
@@ -127,11 +128,11 @@ export const QuizResultScreen: React.FC = () => {
       {/* Action Buttons */}
       <div className="space-y-2.5 pt-2">
         <button
-          onClick={() => navigateTo('quiz')}
+          onClick={() => navigateTo('rewards')}
           className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-cyan-500 to-[#FF9933] text-black font-bold text-sm flex items-center justify-center gap-2 shadow-gold-glow hover:brightness-110 active:scale-98 transition-all"
         >
-          <RotateCcw className="w-4 h-4" />
-          <span>PLAY AGAIN</span>
+          <span>VIEW IN REWARDS LEDGER</span>
+          <ArrowRight className="w-4 h-4" />
         </button>
 
         <button
@@ -139,7 +140,7 @@ export const QuizResultScreen: React.FC = () => {
           className="w-full py-3.5 px-5 rounded-2xl bg-[#141724] border border-white/15 text-white font-bold text-sm flex items-center justify-center gap-2 hover:bg-white/10 active:scale-98 transition-all"
         >
           <Award className="w-4 h-4 text-[#FF9933]" />
-          <span>VIEW ACHIEVEMENT</span>
+          <span>VIEW ACHIEVEMENTS</span>
         </button>
 
         <button

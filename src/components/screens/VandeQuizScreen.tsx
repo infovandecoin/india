@@ -1,123 +1,144 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   ArrowLeft, 
-  HelpCircle, 
   Clock, 
   Sparkles, 
   CheckCircle2, 
   XCircle, 
   ArrowRight,
   Lightbulb,
-  Award
+  Award,
+  Lock
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
-import { QuizQuestion } from '../../types';
-
-const questions: QuizQuestion[] = [
-  {
-    id: 1,
-    question: 'What does a blockchain primarily provide?',
-    options: [
-      'A decentralized ledger',
-      'A social media network',
-      'A physical mining machine',
-      'A centralized database'
-    ],
-    correctIndex: 0,
-    explanation: 'A blockchain is fundamentally a decentralized, immutable ledger distributed across independent network nodes, ensuring cryptographic transparency without central intermediaries.',
-    vdcReward: 5.00
-  },
-  {
-    id: 2,
-    question: 'How does VandeCoin avoid energy-intensive mining waste?',
-    options: [
-      'By running Proof-of-Work computations overnight',
-      'By utilizing Proof-of-Participation and verified human presence',
-      'By purchasing external computing power from big tech',
-      'By requiring users to keep mobile screens turned on permanently'
-    ],
-    correctIndex: 1,
-    explanation: 'VandeCoin leverages lightweight Proof-of-Participation (PoP), replacing energy-wasting hashing loops with genuine daily engagement and network validation.',
-    vdcReward: 5.00
-  },
-  {
-    id: 3,
-    question: 'What is the primary role of your VandeCircle?',
-    options: [
-      'Trading volatile crypto derivatives with peers',
-      'Establishing a mutual web of social trust and validator security',
-      'Borrowing high-interest loans from strangers',
-      'Automating bot clicks on third-party websites'
-    ],
-    correctIndex: 1,
-    explanation: 'VandeCircles create sybil-resistant decentralized trust graphs, strengthening network security through verified interpersonal relationships.',
-    vdcReward: 5.00
-  },
-  {
-    id: 4,
-    question: 'What is a smart contract in decentralized ecosystems?',
-    options: [
-      'A legal PDF signed with a digital pen',
-      'Self-executing code stored on-chain that runs when terms are met',
-      'An agreement between internet service providers',
-      'A hardware chip built into high-end phones'
-    ],
-    correctIndex: 1,
-    explanation: 'Smart contracts are immutable programs deployed to a blockchain network that execute deterministic actions automatically when specified parameters are fulfilled.',
-    vdcReward: 5.00
-  },
-  {
-    id: 5,
-    question: 'Why is non-custodial key ownership important in Web3?',
-    options: [
-      'It grants users sovereign ownership over their identity and assets',
-      'It allows banks to lock funds during maintenance',
-      'It makes passwords public to all network users',
-      'It limits user logins to a single IP address'
-    ],
-    correctIndex: 0,
-    explanation: 'Non-custodial architecture ensures you maintain cryptographic custody of your private credentials, eliminating single points of corporate failure.',
-    vdcReward: 5.00
-  }
-];
+import { 
+  getDailyQuizQuestions, 
+  evaluateAnswer, 
+  submitDailyQuiz, 
+  canTakeDailyQuiz 
+} from '../../services/quizService';
+import { QuizQuestionPublic, QuizEvaluationResult } from '../../types';
 
 export const VandeQuizScreen: React.FC = () => {
-  const { navigateBack, submitQuizScore, showToast } = useApp();
+  const { navigateBack, submitQuizScore, showToast, authUser } = useApp();
+  const currentUid = authUser?.uid || 'local_pioneer';
+
+  const [questions, setQuestions] = useState<QuizQuestionPublic[]>([]);
+  const [canPlay, setCanPlay] = useState<boolean | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [isAnswered, setIsAnswered] = useState(false);
-  const [correctCount, setCorrectCount] = useState(0);
+  const [evaluation, setEvaluation] = useState<QuizEvaluationResult | null>(null);
+  const [answeredHistory, setAnsweredHistory] = useState<{ questionId: number; selectedIndex: number }[]>([]);
   const [accumulatedVdc, setAccumulatedVdc] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const currentQ = questions[currentIndex];
+  useEffect(() => {
+    async function initQuiz() {
+      const available = await canTakeDailyQuiz(currentUid);
+      setCanPlay(available);
+      if (available) {
+        setQuestions(getDailyQuizQuestions());
+      }
+    }
+    initQuiz();
+  }, [currentUid]);
+
   const optionLetters = ['A', 'B', 'C', 'D'];
 
-  const handleSelectOption = (index: number) => {
-    if (isAnswered) return;
-    setSelectedOption(index);
-    setIsAnswered(true);
+  if (canPlay === false) {
+    return (
+      <div className="w-full flex-1 px-4 py-3 space-y-4 pb-8 flex flex-col justify-between">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={navigateBack}
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all active:scale-95"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-base font-bold text-white tracking-wide font-sans">
+            VandeQuiz
+          </h1>
+          <div className="w-9" />
+        </div>
 
-    const isCorrect = index === currentQ.correctIndex;
-    if (isCorrect) {
+        <div className="my-auto p-6 rounded-3xl glass-panel-gold border border-[#FF9933]/40 text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-[#FF9933]/15 text-[#FF9933] flex items-center justify-center mx-auto border border-[#FF9933]/30 shadow-gold-glow">
+            <Lock className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-1">
+            <h2 className="text-xl font-extrabold text-white">
+              Today's Quiz Completed!
+            </h2>
+            <p className="text-xs text-slate-300 max-w-xs mx-auto leading-relaxed">
+              You have already verified your daily Web3 educational knowledge. To ensure authentic long-term learning and anti-abuse compliance, only one quiz session is permitted per calendar day.
+            </p>
+          </div>
+
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#111624] border border-cyan-500/30 text-xs font-mono text-cyan-300">
+            <Clock className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Next Quiz Available Tomorrow (00:00 UTC)</span>
+          </div>
+
+          <button
+            onClick={navigateBack}
+            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#FF9933] to-[#F59E0B] text-black font-bold text-xs hover:brightness-110 active:scale-98 transition-all"
+          >
+            RETURN TO DASHBOARD
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className="w-full flex-1 flex items-center justify-center text-slate-400 font-mono text-xs">
+        Loading questions bank...
+      </div>
+    );
+  }
+
+  const currentQ = questions[currentIndex];
+
+  const handleSelectOption = (index: number) => {
+    if (evaluation !== null) return;
+    setSelectedOption(index);
+
+    // Authoritative answer evaluation via quizService
+    const result = evaluateAnswer(currentQ.id, index);
+    setEvaluation(result);
+    setAnsweredHistory(prev => [...prev, { questionId: currentQ.id, selectedIndex: index }]);
+
+    if (result.isCorrect) {
       sounds.playQuizSuccess();
       setCorrectCount(prev => prev + 1);
-      setAccumulatedVdc(prev => prev + currentQ.vdcReward);
-      showToast(`Correct! +${currentQ.vdcReward.toFixed(2)} VDC Earned`, 'gold');
+      setAccumulatedVdc(prev => prev + result.vdcReward);
+      showToast(`Correct! +${result.vdcReward.toFixed(2)} VDC Earned`, 'gold');
     } else {
       sounds.playQuizWrong();
     }
   };
 
-  const handleNextQuestion = () => {
+  const handleNextQuestion = async () => {
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(prev => prev + 1);
       setSelectedOption(null);
-      setIsAnswered(false);
+      setEvaluation(null);
     } else {
-      const finalScore = correctCount + 4;
-      const finalVdc = Math.min(50, accumulatedVdc + 20);
-      submitQuizScore(finalScore, finalVdc);
+      // Finalize quiz attempt with authoritative server-side ledger credit
+      setIsSubmitting(true);
+      const submitResult = await submitDailyQuiz(currentUid, answeredHistory);
+      setIsSubmitting(false);
+
+      if (submitResult.success) {
+        submitQuizScore(submitResult.score, submitResult.totalVdcEarned);
+      } else {
+        showToast(submitResult.error || 'Quiz completed', 'info');
+        navigateBack();
+      }
     }
   };
 
@@ -141,7 +162,7 @@ export const VandeQuizScreen: React.FC = () => {
         </div>
         <div className="flex items-center gap-1 text-xs font-mono text-slate-400 bg-white/5 px-2 py-1 rounded-xl border border-white/10">
           <Clock className="w-3 h-3 text-[#FF9933]" />
-          <span>0:45</span>
+          <span>Daily</span>
         </div>
       </div>
 
@@ -149,7 +170,7 @@ export const VandeQuizScreen: React.FC = () => {
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs font-mono">
           <span className="text-slate-400">
-            Question <span className="text-white font-bold">{currentIndex + 1}</span> of 10
+            Question <span className="text-white font-bold">{currentIndex + 1}</span> of {questions.length}
           </span>
           <span className="text-[#FF9933] font-bold">+{currentQ.vdcReward.toFixed(2)} VDC</span>
         </div>
@@ -157,7 +178,7 @@ export const VandeQuizScreen: React.FC = () => {
         <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
           <div 
             className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-[#FF9933] to-[#F59E0B] transition-all duration-500 shadow-gold-glow"
-            style={{ width: `${((currentIndex + 1) / 10) * 100}%` }}
+            style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
           />
         </div>
       </div>
@@ -166,7 +187,7 @@ export const VandeQuizScreen: React.FC = () => {
       <div className="p-5 rounded-3xl glass-panel-elevated border border-white/15 space-y-2">
         <div className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-semibold flex items-center gap-1">
           <Sparkles className="w-3 h-3" />
-          <span>TODAY'S QUIZ</span>
+          <span>QUESTION {currentIndex + 1}</span>
         </div>
         <h2 className="text-base sm:text-lg font-bold text-white leading-snug">
           "{currentQ.question}"
@@ -177,7 +198,8 @@ export const VandeQuizScreen: React.FC = () => {
       <div className="space-y-2.5">
         {currentQ.options.map((option, idx) => {
           const isSelected = selectedOption === idx;
-          const isCorrect = idx === currentQ.correctIndex;
+          const isAnswered = evaluation !== null;
+          const isCorrect = isAnswered && idx === evaluation.correctIndex;
 
           let cardStyle = 'bg-[#121522] border-white/10 hover:border-white/20 text-slate-200';
 
@@ -229,7 +251,7 @@ export const VandeQuizScreen: React.FC = () => {
       </div>
 
       {/* Answer Feedback & Educational Explanation */}
-      {isAnswered && (
+      {evaluation && (
         <div className="p-4 rounded-2xl bg-[#0F1424] border border-cyan-500/30 space-y-2 animate-fade-in">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-xs font-bold text-cyan-300 font-mono">
@@ -237,18 +259,25 @@ export const VandeQuizScreen: React.FC = () => {
               <span>CONCEPT EXPLANATION</span>
             </div>
             <span className="text-xs font-mono font-bold text-[#FF9933]">
-              {selectedOption === currentQ.correctIndex ? '+5.00 VDC Reward' : '+0 VDC'}
+              {evaluation.isCorrect ? `+${evaluation.vdcReward.toFixed(2)} VDC Reward` : '+0 VDC'}
             </span>
           </div>
           <p className="text-xs text-slate-300 leading-relaxed font-sans">
-            {currentQ.explanation}
+            {evaluation.explanation}
           </p>
 
           <button
             onClick={handleNextQuestion}
+            disabled={isSubmitting}
             className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-[#FF9933] text-black font-bold text-xs flex items-center justify-center gap-2 hover:brightness-110 active:scale-98 transition-all"
           >
-            <span>{currentIndex < questions.length - 1 ? 'NEXT QUESTION' : 'VIEW FINAL RESULTS'}</span>
+            <span>
+              {isSubmitting 
+                ? 'RECORDING TO LEDGER...' 
+                : currentIndex < questions.length - 1 
+                ? 'NEXT QUESTION' 
+                : 'SUBMIT & CLAIM VDC'}
+            </span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

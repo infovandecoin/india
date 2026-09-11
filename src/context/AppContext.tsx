@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Preferences } from '@capacitor/preferences';
 import { 
   NavigationTab, 
@@ -28,6 +28,42 @@ import {
   RemoteLeaderboardEntry 
 } from '../services/firestoreService';
 import { isFirebaseConfigured } from '../services/firebase';
+import { 
+  fetchUserLedger, 
+  calculateBalanceFromLedger, 
+  recordLedgerTransaction 
+} from '../services/ledgerService';
+import { 
+  getActiveMiningSession, 
+  evaluateMiningSession, 
+  startMiningSession, 
+  settleMiningSession, 
+  calculateDynamicMiningRate 
+} from '../services/miningService';
+import { 
+  getStreakStatus, 
+  claimDailyStreakBonus 
+} from '../services/streakService';
+import { 
+  fetchCircleMembers, 
+  addCircleMember, 
+  calculateCircleMetrics 
+} from '../services/circleService';
+import { 
+  generateUserReferralCode, 
+  getUserReferrals, 
+  applyReferralCode 
+} from '../services/referralService';
+import { 
+  getSavedAchievements, 
+  evaluateAchievements, 
+  claimAchievementReward 
+} from '../services/achievementService';
+import { 
+  getUserNotifications, 
+  saveUserNotifications 
+} from '../services/notificationService';
+import { getSecuritySettings } from '../services/securityService';
 
 interface ToastItem {
   id: string;
@@ -54,17 +90,20 @@ interface AppContextType {
   toggleSound: () => void;
   toasts: ToastItem[];
   showToast: (message: string, type?: 'success' | 'info' | 'gold') => void;
-  toggleMining: () => void;
-  claimAchievement: (id: string) => void;
-  claimStreakBonus: () => void;
+  toggleMining: () => Promise<void>;
+  claimAchievement: (id: string) => Promise<void>;
+  claimStreakBonus: () => Promise<void>;
   submitQuizScore: (score: number, vdc: number) => void;
   lastQuizResult: { score: number; vdc: number } | null;
   copyReferralCode: () => void;
-  claimWelcomeReward: () => void;
+  claimWelcomeReward: () => Promise<void>;
   markAllNotificationsRead: () => void;
   isInviteModalOpen: boolean;
   setInviteModalOpen: (open: boolean) => void;
-  // Cloud Integration State & Actions
+  addCirclePeer: (handleOrCode: string) => Promise<{ success: boolean; error?: string }>;
+  redeemReferral: (code: string) => Promise<{ success: boolean; error?: string }>;
+  refreshUserData: () => Promise<void>;
+  // Cloud Auth
   authUser: AuthUserProfile | null;
   isCloudConnected: boolean;
   remoteLeaderboard: RemoteLeaderboardEntry[];
@@ -75,94 +114,53 @@ interface AppContextType {
   deleteAccountAndData: () => Promise<boolean>;
 }
 
-const initialUser: UserState = {
-  username: '@VandeExplorer',
+const defaultInitialUser: UserState = {
+  username: '@VandePioneer',
   avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=240&q=80',
-  balance: 1248.65,
-  miningRatePerHour: 0.25,
-  miningActive: true,
-  sessionRemainingSeconds: 85338, // 23:42:18
-  todayEarnings: 42.50,
-  pendingRewards: 720.00,
-  streakDays: 14,
+  balance: 0.00,
+  miningRatePerHour: 0.20,
+  miningActive: false,
+  sessionRemainingSeconds: 86400,
+  todayEarnings: 0.00,
+  pendingRewards: 0.00,
+  streakDays: 1,
   streakMaxDays: 30,
   streakShields: 1,
-  streakBonusMultiplier: 15,
-  circleMembersCount: 8,
+  streakBonusMultiplier: 1,
+  circleMembersCount: 0,
   circleMaxMembers: 10,
-  circleStrengthPercent: 82,
-  circleEarningsToday: 12.50,
-  referralCount: 127,
-  referralActive: 94,
-  referralVerified: 76,
-  referralPending: 33,
-  referralRewardsTotal: 386.40,
-  referralCode: 'VDC-RISHI-8294',
-  quizScorePercent: 82,
-  quizQuestionsAnswered: 73,
-  achievementsUnlocked: 18,
-  totalAchievements: 50,
-  globalRank: 128,
-  rankDeltaToday: 4,
-  xp: 2480,
-  xpMax: 3000,
-  levelTitle: 'Vande Pioneer',
-  levelTier: 4,
-  profileCompletionPercent: 85,
+  circleStrengthPercent: 0,
+  circleEarningsToday: 0.00,
+  referralCount: 0,
+  referralActive: 0,
+  referralVerified: 0,
+  referralPending: 0,
+  referralRewardsTotal: 0.00,
+  referralCode: 'VDC-PIONEER-1001',
+  quizScorePercent: 0,
+  quizQuestionsAnswered: 0,
+  achievementsUnlocked: 0,
+  totalAchievements: 8,
+  globalRank: 1042,
+  rankDeltaToday: 1,
+  xp: 150,
+  xpMax: 1000,
+  levelTitle: 'Founding Pioneer',
+  levelTier: 1,
+  profileCompletionPercent: 40,
   isVerifiedVandeId: true,
-  setupTasksCompleted: 5,
+  setupTasksCompleted: 2,
   setupTasksTotal: 7,
 };
 
-const initialCircleMembers: CircleMember[] = [
-  { id: '1', name: 'Aarav Sharma', username: '@aarav_vdc', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=150&q=80', verified: true, status: 'active', contributionPerHour: 0.04, joinedDays: 38, trustScore: 96 },
-  { id: '2', name: 'Ananya Iyer', username: '@ananya_i', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80', verified: true, status: 'active', contributionPerHour: 0.04, joinedDays: 30, trustScore: 94 },
-  { id: '3', name: 'Marcus Vance', username: '@marcus_v', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80', verified: true, status: 'active', contributionPerHour: 0.035, joinedDays: 24, trustScore: 91 },
-  { id: '4', name: 'Priya Patel', username: '@priya_p', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80', verified: true, status: 'active', contributionPerHour: 0.04, joinedDays: 21, trustScore: 95 },
-  { id: '5', name: 'Devendra Nair', username: '@dev_nair', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80', verified: true, status: 'active', contributionPerHour: 0.03, joinedDays: 18, trustScore: 89 },
-  { id: '6', name: 'Sophia Chen', username: '@sophia_c', avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=150&q=80', verified: true, status: 'active', contributionPerHour: 0.035, joinedDays: 15, trustScore: 92 },
-  { id: '7', name: 'Rohan Gupta', username: '@rohan_g', avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=150&q=80', verified: false, status: 'active', contributionPerHour: 0.02, joinedDays: 8, trustScore: 78 },
-  { id: '8', name: 'Elena Rostova', username: '@elena_vdc', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80', verified: true, status: 'active', contributionPerHour: 0.04, joinedDays: 6, trustScore: 97 },
-];
-
-const initialAchievements: AchievementItem[] = [
-  { id: '1', title: 'First Step', description: 'Complete your first VandeCoin session.', category: 'Ecosystem', icon: 'Sparkles', progress: 1, target: 1, rewardVdc: 5.00, unlocked: true, claimed: true },
-  { id: '2', title: 'Early Explorer', description: 'Complete 7 days of participation.', category: 'Dedication', icon: 'Compass', progress: 7, target: 7, rewardVdc: 15.00, unlocked: true, claimed: true },
-  { id: '3', title: 'Knowledge Seeker', description: 'Answer 100 quiz questions.', category: 'Learning', icon: 'BookOpen', progress: 73, target: 100, rewardVdc: 25.00, unlocked: false, claimed: false },
-  { id: '4', title: 'Circle Builder', description: 'Create an active VandeCircle with trusted members.', category: 'Community', icon: 'Users', progress: 8, target: 5, rewardVdc: 20.00, unlocked: true, claimed: true },
-  { id: '5', title: 'Community Champion', description: 'Reach 100 eligible active referrals.', category: 'Community', icon: 'Award', progress: 76, target: 100, rewardVdc: 75.00, unlocked: false, claimed: false },
-  { id: '6', title: '30-Day Legend', description: 'Maintain a continuous 30-day streak.', category: 'Dedication', icon: 'Flame', progress: 14, target: 30, rewardVdc: 150.00, unlocked: false, claimed: false },
-  { id: '7', title: 'Quiz Master', description: 'Achieve 90%+ accuracy over a defined quiz period.', category: 'Learning', icon: 'Trophy', progress: 82, target: 90, rewardVdc: 50.00, unlocked: false, claimed: false },
-  { id: '8', title: 'Security Guardian', description: 'Enable Passkey, 2FA, and verified recovery phrase.', category: 'Ecosystem', icon: 'ShieldCheck', progress: 3, target: 3, rewardVdc: 30.00, unlocked: true, claimed: false },
-];
-
-const initialRewardsHistory: RewardTransaction[] = [
-  { id: 'tx-1', title: 'Daily Participation Session', activity: 'Daily Mining Proof-of-Participation', amount: 18.00, timestamp: 'Today, 09:30 AM', status: 'completed', category: 'mining' },
-  { id: 'tx-2', title: 'Blockchain Fundamentals Quiz', activity: 'Daily VandeQuiz 8/10 Score', amount: 10.00, timestamp: 'Today, 11:15 AM', status: 'completed', category: 'quiz' },
-  { id: 'tx-3', title: '14-Day Streak Milestone', activity: 'Streak bonus payout', amount: 5.00, timestamp: 'Today, 12:00 PM', status: 'completed', category: 'streak' },
-  { id: 'tx-4', title: 'Circle Collective Contribution', activity: '8 active trusted circle peers', amount: 4.50, timestamp: 'Today, 01:20 PM', status: 'completed', category: 'circle' },
-  { id: 'tx-5', title: 'Early Explorer Achievement', activity: 'Achievement milestone claimed', amount: 5.00, timestamp: 'Today, 02:00 PM', status: 'completed', category: 'achievement' },
-  { id: 'tx-6', title: 'Network Expansion Bonus', activity: 'Referral verification (tier 2)', amount: 45.00, timestamp: 'Yesterday', status: 'completed', category: 'referral' },
-  { id: 'tx-7', title: 'Ecosystem Reserve Allotment', activity: 'Network validator tier qualification', amount: 720.00, timestamp: 'Pending verification', status: 'pending', category: 'welcome' },
-];
-
-const initialNotifications: AppNotification[] = [
-  { id: 'n1', title: 'Streak Active', message: 'Your 14-day streak is active. Keep participating every day to reach Day 30!', timeAgo: '10m ago', category: 'rewards', read: false, targetRoute: 'streaks' },
-  { id: 'n2', title: 'Quiz Reward Earned', message: 'You earned +10 VDC from today\'s Blockchain & Technology quiz.', timeAgo: '2h ago', category: 'rewards', read: false, targetRoute: 'rewards' },
-  { id: 'n3', title: 'VandeCircle Milestone', message: 'Your VandeCircle reached 8 active members. Collective rate increased!', timeAgo: '4h ago', category: 'community', read: false, targetRoute: 'circle' },
-  { id: 'n4', title: 'Achievement Unlocked', message: 'You unlocked "Knowledge Seeker" milestone progress: 73/100.', timeAgo: '1d ago', category: 'achievements', read: true, targetRoute: 'achievements' },
-  { id: 'n5', title: 'Mining Session Ready', message: 'Your daily mining session is active. Current speed: +0.25 VDC/h.', timeAgo: '1d ago', category: 'system', read: true, targetRoute: 'mining' },
-  { id: 'n6', title: 'Account Protected', message: 'Biometric passkey verified on iPhone 16 Pro.', timeAgo: '3d ago', category: 'security', read: true, targetRoute: 'security' },
-];
-
-const initialSetupTasks: SetupTask[] = [
-  { id: 1, title: 'Create VandeID Username', description: 'Your global decentralized identity handle: @VandeExplorer', completed: true },
-  { id: 2, title: 'Secure Account', description: 'Enable Passkey & biometric verification', completed: true, actionRoute: 'security' },
-  { id: 3, title: 'Start First Mining Session', description: 'Activate eco-friendly proof-of-participation', completed: true, actionRoute: 'mining' },
-  { id: 4, title: 'Complete First Quiz', description: 'Pass your first blockchain educational quiz', completed: true, actionRoute: 'quiz' },
-  { id: 5, title: 'Create VandeCircle', description: 'Build your inner trust network with 5+ members', completed: true, actionRoute: 'circle' },
-  { id: 6, title: 'Invite First Friend', description: 'Share your code VDC-RISHI-8294 with a friend', completed: false, actionRoute: 'referral' },
-  { id: 7, title: 'Unlock First Milestone Achievement', description: 'Claim your initial Explorer badge', completed: false, actionRoute: 'achievements' },
+const initialSetupTasksConfig: SetupTask[] = [
+  { id: 1, title: 'Create VandeID Handle', description: 'Your sovereign identity across the ecosystem', completed: true },
+  { id: 2, title: 'Secure Cryptographic Keys', description: 'Passkey & 12-word recovery phrase backup', completed: true, actionRoute: 'security' },
+  { id: 3, title: 'Start First Mining Session', description: 'Activate Proof-of-Participation daily mining', completed: false, actionRoute: 'mining' },
+  { id: 4, title: 'Complete First Educational Quiz', description: 'Learn Web3 fundamentals and earn VDC', completed: false, actionRoute: 'quiz' },
+  { id: 5, title: 'Build Your VandeCircle', description: 'Connect with trusted peers for mutual validator security', completed: false, actionRoute: 'circle' },
+  { id: 6, title: 'Invite a Pioneer', description: 'Share your referral code to expand the network', completed: false, actionRoute: 'referral' },
+  { id: 7, title: 'Claim First Milestone Badge', description: 'Unlock your initial explorer achievement', completed: false, actionRoute: 'achievements' },
 ];
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -171,12 +169,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTab, setActiveTabState] = useState<NavigationTab>('home');
   const [activeRoute, setActiveRoute] = useState<ScreenRoute>('home');
   const [history, setHistory] = useState<ScreenRoute[]>(['home']);
-  const [user, setUser] = useState<UserState>(initialUser);
-  const [circleMembers] = useState<CircleMember[]>(initialCircleMembers);
-  const [achievements, setAchievements] = useState<AchievementItem[]>(initialAchievements);
-  const [rewardsHistory, setRewardsHistory] = useState<RewardTransaction[]>(initialRewardsHistory);
-  const [notifications, setNotifications] = useState<AppNotification[]>(initialNotifications);
-  const [setupTasks, setSetupTasks] = useState<SetupTask[]>(initialSetupTasks);
+  const [user, setUser] = useState<UserState>(defaultInitialUser);
+  const [circleMembers, setCircleMembers] = useState<CircleMember[]>([]);
+  const [achievements, setAchievements] = useState<AchievementItem[]>([]);
+  const [rewardsHistory, setRewardsHistory] = useState<RewardTransaction[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [setupTasks, setSetupTasks] = useState<SetupTask[]>(initialSetupTasksConfig);
   const [deviceModel, setDeviceModel] = useState<'iphone16' | 'pixel9' | 'fullscreen'>('iphone16');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -185,18 +183,139 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [authUser, setAuthUser] = useState<AuthUserProfile | null>(null);
   const [remoteLeaderboard, setRemoteLeaderboard] = useState<RemoteLeaderboardEntry[]>([]);
 
-  // Real-time Firebase Auth Subscription
+  const currentUid = authUser?.uid || 'local_pioneer';
+
+  const showToast = (message: string, type: 'success' | 'info' | 'gold' = 'gold') => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts(prev => [...prev.slice(-2), { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3200);
+  };
+
+  /**
+   * Authoritative refresh of all user state from ledger & services
+   */
+  const refreshUserData = useCallback(async () => {
+    const uid = currentUid;
+    
+    // 1. Fetch Ledger Transactions
+    const txs = await fetchUserLedger(uid);
+    setRewardsHistory(txs);
+
+    // 2. Authoritative Balance Calculation
+    const verifiedBalance = calculateBalanceFromLedger(txs);
+
+    // 3. Compute Today's Ledger Earnings
+    const todayStr = new Date().toDateString();
+    const todayEarned = txs
+      .filter(tx => tx.status === 'completed' && (tx.timestamp.includes('Today') || tx.timestamp.includes('Just now') || tx.timestamp.includes(todayStr)))
+      .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+
+    // 4. Load Circle Members & Metrics
+    const members = await fetchCircleMembers(uid);
+    setCircleMembers(members);
+    const circleMetrics = calculateCircleMetrics(members);
+
+    // 5. Load Active Mining Session
+    const activeSession = await getActiveMiningSession(uid);
+    const miningEval = evaluateMiningSession(activeSession);
+
+    // 6. Load Streak Status
+    const streakStatus = await getStreakStatus(uid, user.streakDays, user.streakShields, user.lastCheckInDate);
+
+    // 7. Load Referrals
+    const referrals = await getUserReferrals(uid);
+    const referralTotal = referrals.length;
+    const referralRewardsTotal = txs
+      .filter(tx => tx.category === 'referral' && tx.status === 'completed')
+      .reduce((s, tx) => s + tx.amount, 0);
+
+    // 8. Generate / Sync Referral Code
+    const refCode = generateUserReferralCode(user.username, uid);
+
+    // 9. Load Security Factors
+    const secSettings = await getSecuritySettings(uid);
+    const secCount = (secSettings.passkeyActive ? 1 : 0) + (secSettings.twoFactorActive ? 1 : 0) + (secSettings.phraseVerified ? 1 : 0);
+
+    // 10. Load & Evaluate Achievements
+    const savedAchs = await getSavedAchievements(uid);
+    const evaluatedAchs = evaluateAchievements(savedAchs, {
+      ...user,
+      balance: verifiedBalance,
+      streakDays: streakStatus.streakDays,
+      circleMembersCount: circleMetrics.count,
+      referralCount: referralTotal,
+    }, secCount);
+    setAchievements(evaluatedAchs);
+    const unlockedCount = evaluatedAchs.filter(a => a.unlocked).length;
+
+    // 11. Load Notifications
+    const notifs = await getUserNotifications(uid);
+    setNotifications(notifs);
+
+    // 12. Evaluate Setup Tasks
+    const hasMining = miningEval.isActive || txs.some(t => t.category === 'mining');
+    const hasQuiz = txs.some(t => t.category === 'quiz');
+    const hasCircle = circleMetrics.count > 0;
+    const hasReferral = referralTotal > 0 || txs.some(t => t.category === 'referral');
+    const hasBadge = evaluatedAchs.some(a => a.claimed);
+    const welcomeClaimed = txs.some(t => t.category === 'welcome');
+
+    const updatedTasks: SetupTask[] = [
+      { id: 1, title: 'Create VandeID Handle', description: `Decentralized identity: ${user.username}`, completed: true },
+      { id: 2, title: 'Secure Cryptographic Keys', description: 'Passkey & 12-word recovery phrase backup', completed: secSettings.phraseVerified, actionRoute: 'security' },
+      { id: 3, title: 'Start First Mining Session', description: 'Activate Proof-of-Participation daily mining', completed: hasMining, actionRoute: 'mining' },
+      { id: 4, title: 'Complete First Educational Quiz', description: 'Learn Web3 fundamentals and earn VDC', completed: hasQuiz, actionRoute: 'quiz' },
+      { id: 5, title: 'Build Your VandeCircle', description: 'Connect with trusted peers for mutual validator security', completed: hasCircle, actionRoute: 'circle' },
+      { id: 6, title: 'Invite a Pioneer', description: `Share code ${refCode} to expand the network`, completed: hasReferral, actionRoute: 'referral' },
+      { id: 7, title: 'Claim First Milestone Badge', description: 'Unlock your initial explorer achievement', completed: hasBadge, actionRoute: 'achievements' },
+    ];
+    setSetupTasks(updatedTasks);
+    const tasksDone = updatedTasks.filter(t => t.completed).length;
+
+    // Dynamic rate calculation
+    const rateCalc = calculateDynamicMiningRate(streakStatus.streakDays, circleMetrics.activeCount);
+
+    setUser(prev => ({
+      ...prev,
+      balance: verifiedBalance,
+      todayEarnings: Number(todayEarned.toFixed(2)),
+      miningActive: miningEval.isActive,
+      miningRatePerHour: miningEval.isActive ? miningEval.ratePerHour : rateCalc.totalRate,
+      sessionRemainingSeconds: miningEval.sessionRemainingSeconds,
+      streakDays: streakStatus.streakDays,
+      streakShields: streakStatus.streakShields,
+      circleMembersCount: circleMetrics.count,
+      circleStrengthPercent: circleMetrics.strengthPercent,
+      circleEarningsToday: circleMetrics.earningsToday,
+      referralCount: referralTotal,
+      referralActive: referrals.filter(r => r.status === 'active' || r.status === 'verified').length,
+      referralVerified: referrals.filter(r => r.status === 'verified').length,
+      referralPending: referrals.filter(r => r.status === 'pending').length,
+      referralRewardsTotal: Number(referralRewardsTotal.toFixed(2)),
+      referralCode: refCode,
+      achievementsUnlocked: unlockedCount,
+      totalAchievements: evaluatedAchs.length,
+      setupTasksCompleted: tasksDone,
+      setupTasksTotal: updatedTasks.length,
+    }));
+  }, [currentUid, user.username, user.streakDays, user.streakShields, user.lastCheckInDate]);
+
+  // Firebase Auth Listener
   useEffect(() => {
     const unsubscribe = subscribeToAuth((profile) => {
       setAuthUser(profile);
       if (profile) {
-        if (profile.displayName) {
-          setUser(prev => ({ ...prev, username: profile.displayName || prev.username }));
-        }
-        // Fetch or create user in Cloud Firestore
-        syncUserProfile(profile.uid, user).then(remoteData => {
-          if (remoteData) {
-            setUser(prev => ({ ...prev, ...remoteData }));
+        const username = profile.displayName || `@${profile.email?.split('@')[0] || 'Pioneer'}`;
+        setUser(prev => ({ ...prev, username }));
+
+        syncUserProfile(profile.uid, {
+          username,
+          avatarUrl: profile.photoURL || defaultInitialUser.avatarUrl,
+        }).then(remote => {
+          if (remote) {
+            setUser(prev => ({ ...prev, ...remote }));
           }
         });
       }
@@ -204,7 +323,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, []);
 
-  // Real-time Cloud Firestore Leaderboard Listener
+  // Leaderboard Listener
   useEffect(() => {
     const unsubscribe = subscribeToLeaderboard((entries) => {
       if (entries && entries.length > 0) {
@@ -214,29 +333,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, []);
 
-  // Cloud Firestore Sync: Update remote document when critical state changes
+  // Load state on mount / uid change
   useEffect(() => {
-    if (!authUser?.uid) return;
-    const timeout = setTimeout(() => {
-      updateRemoteUserState(authUser.uid, {
-        balance: user.balance,
-        streakDays: user.streakDays,
-        miningActive: user.miningActive,
-        xp: user.xp,
-        quizScorePercent: user.quizScorePercent,
-        achievementsUnlocked: user.achievementsUnlocked,
-        username: user.username,
-      });
-    }, 2500);
-    return () => clearTimeout(timeout);
-  }, [user.balance, user.streakDays, user.miningActive, user.xp, authUser?.uid]);
+    refreshUserData();
+  }, [currentUid]);
 
-  // Live timer tick
+  // Live timer tick for active mining
   useEffect(() => {
     const timer = setInterval(() => {
       setUser(prev => {
         if (!prev.miningActive) return prev;
-        const nextSeconds = prev.sessionRemainingSeconds > 0 ? prev.sessionRemainingSeconds - 1 : 86400;
+        if (prev.sessionRemainingSeconds <= 1) {
+          // Session expired: auto settle on next tick
+          return {
+            ...prev,
+            sessionRemainingSeconds: 0,
+            miningActive: false,
+          };
+        }
+        const nextSeconds = prev.sessionRemainingSeconds - 1;
         const microRate = (prev.miningRatePerHour / 3600);
         return {
           ...prev,
@@ -248,56 +363,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearInterval(timer);
   }, []);
 
-  // Offline Persistence: Load stored data from native device storage on boot
-  useEffect(() => {
-    async function loadPersistedState() {
-      try {
-        const { value: storedUser } = await Preferences.get({ key: 'vdc_user_state' });
-        if (storedUser) {
-          const parsed = JSON.parse(storedUser);
-          setUser(prev => ({ ...prev, ...parsed }));
-        }
-
-        const { value: storedSound } = await Preferences.get({ key: 'vdc_sound_enabled' });
-        if (storedSound !== null && storedSound !== undefined) {
-          const isEnabled = storedSound === 'true';
-          setSoundEnabled(isEnabled);
-          sounds.enabled = isEnabled;
-        }
-      } catch (err) {
-        console.warn('Preferences load error:', err);
-      }
-    }
-    loadPersistedState();
-  }, []);
-
-  // Offline Persistence: Save user state periodically / on updates
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      Preferences.set({
-        key: 'vdc_user_state',
-        value: JSON.stringify(user),
-      }).catch(() => {});
-    }, 1500);
-    return () => clearTimeout(timeout);
-  }, [user]);
-
-  // Save sound settings
-  useEffect(() => {
-    Preferences.set({
-      key: 'vdc_sound_enabled',
-      value: String(soundEnabled),
-    }).catch(() => {});
-  }, [soundEnabled]);
-
-  const showToast = (message: string, type: 'success' | 'info' | 'gold' = 'gold') => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setToasts(prev => [...prev.slice(-2), { id, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3200);
-  };
-
+  // Sound and Nav Handlers
   const toggleSound = () => {
     const next = !soundEnabled;
     setSoundEnabled(next);
@@ -338,82 +404,125 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setHistory([tab]);
   };
 
-  const toggleMining = () => {
-    const nextState = !user.miningActive;
-    sounds.playMiningToggle(nextState);
-    if (nextState) {
+  // Mining Toggle
+  const toggleMining = async () => {
+    const uid = currentUid;
+    if (!user.miningActive) {
+      // Start session
+      const session = await startMiningSession(uid, user.streakDays, user.circleMembersCount);
+      sounds.playMiningToggle(true);
       triggerConfetti(0.4);
-      showToast('Daily Mining Active: +0.25 VDC/h verified', 'gold');
+      showToast(`Daily Mining Active: +${session.ratePerHour.toFixed(2)} VDC/h verified`, 'gold');
+      await refreshUserData();
     } else {
-      showToast('Mining session paused', 'info');
+      // Settle active session
+      const result = await settleMiningSession(uid);
+      sounds.playMiningToggle(false);
+      if (result.success) {
+        triggerConfetti(0.4);
+        showToast(`Mining session settled: +${result.settledVdc.toFixed(2)} VDC credited to ledger!`, 'gold');
+      } else {
+        showToast('Mining session paused', 'info');
+      }
+      await refreshUserData();
     }
-    setUser(prev => ({
-      ...prev,
-      miningActive: nextState,
-    }));
   };
 
-  const claimAchievement = (id: string) => {
-    const target = achievements.find(a => a.id === id);
-    if (!target || target.claimed) return;
-    sounds.playRewardChime();
-    triggerConfetti(0.5);
-    setAchievements(prev => prev.map(a => a.id === id ? { ...a, claimed: true, unlocked: true } : a));
-    setUser(prev => ({
-      ...prev,
-      balance: Number((prev.balance + target.rewardVdc).toFixed(2)),
-      todayEarnings: Number((prev.todayEarnings + target.rewardVdc).toFixed(2)),
-      xp: Math.min(prev.xpMax, prev.xp + 150),
-    }));
-    setRewardsHistory(prev => [
-      {
-        id: `tx-claim-${Date.now()}`,
-        title: `${target.title} Unlocked`,
-        activity: 'Achievement reward claimed',
-        amount: target.rewardVdc,
-        timestamp: 'Just now',
-        status: 'completed',
-        category: 'achievement'
-      },
-      ...prev,
-    ]);
-    showToast(`Claimed +${target.rewardVdc.toFixed(2)} VDC & +150 XP!`, 'gold');
+  // Streak Bonus Claim
+  const claimStreakBonus = async () => {
+    const uid = currentUid;
+    const result = await claimDailyStreakBonus(uid, user.streakDays, user.streakShields, user.lastCheckInDate);
+    if (result.success) {
+      sounds.playRewardChime();
+      triggerConfetti(0.5);
+      showToast(
+        result.isMilestone 
+          ? `🎉 ${result.milestoneTitle}! +${result.rewardVdc.toFixed(2)} VDC credited!`
+          : `Daily Streak verified! +${result.rewardVdc.toFixed(2)} VDC added to balance!`,
+        'gold'
+      );
+      await refreshUserData();
+    } else {
+      showToast(result.error || 'Streak already claimed for today', 'info');
+    }
   };
 
-  const claimStreakBonus = () => {
-    sounds.playRewardChime();
-    triggerConfetti(0.5);
-    setUser(prev => ({
-      ...prev,
-      balance: Number((prev.balance + 5.00).toFixed(2)),
-      todayEarnings: Number((prev.todayEarnings + 5.00).toFixed(2)),
-    }));
-    showToast('Daily Streak bonus +5.00 VDC added to balance!', 'gold');
-  };
-
+  // Quiz Score Submission (after completion)
   const submitQuizScore = (score: number, vdc: number) => {
     setLastQuizResult({ score, vdc });
-    setUser(prev => ({
-      ...prev,
-      balance: Number((prev.balance + vdc).toFixed(2)),
-      todayEarnings: Number((prev.todayEarnings + vdc).toFixed(2)),
-      quizScorePercent: Math.round((prev.quizScorePercent * 3 + score * 10) / 4),
-      quizQuestionsAnswered: prev.quizQuestionsAnswered + 10,
-      xp: Math.min(prev.xpMax, prev.xp + 200),
-    }));
-    setRewardsHistory(prev => [
-      {
-        id: `tx-quiz-${Date.now()}`,
-        title: 'Daily VandeQuiz Completed',
-        activity: `${score}/10 correct questions reward`,
-        amount: vdc,
-        timestamp: 'Just now',
-        status: 'completed',
-        category: 'quiz'
-      },
-      ...prev
-    ]);
+    refreshUserData();
     navigateTo('quiz-result');
+  };
+
+  // Claim Achievement
+  const claimAchievement = async (id: string) => {
+    const uid = currentUid;
+    const result = await claimAchievementReward(uid, id, achievements);
+    if (result.success) {
+      sounds.playRewardChime();
+      triggerConfetti(0.5);
+      showToast(`Claimed +${result.rewardVdc.toFixed(2)} VDC milestone reward!`, 'gold');
+      await refreshUserData();
+    } else {
+      showToast(result.error || 'Unable to claim achievement', 'info');
+    }
+  };
+
+  // Claim Welcome Starter Reward (+25.00 VDC)
+  const claimWelcomeReward = async () => {
+    const uid = currentUid;
+    const refKey = `welcome_starter_${uid}`;
+    
+    // Anti-cheat verification
+    const recordResult = await recordLedgerTransaction(uid, {
+      title: 'Welcome Pioneer Starter Reward',
+      activity: 'Completed ecosystem onboarding setup tasks',
+      amount: 25.00,
+      timestamp: 'Just now',
+      status: 'completed',
+      category: 'welcome',
+      refKey,
+    });
+
+    if (recordResult.success) {
+      sounds.playRewardChime();
+      triggerConfetti(0.6);
+      showToast('🎉 +25.00 VDC Starter Reward credited to ledger!', 'gold');
+      await refreshUserData();
+    } else {
+      showToast('Welcome reward has already been claimed for this account!', 'info');
+    }
+  };
+
+  // Add VandeCircle Peer
+  const addCirclePeer = async (handleOrCode: string): Promise<{ success: boolean; error?: string }> => {
+    const uid = currentUid;
+    const result = await addCircleMember(uid, user.username, handleOrCode);
+    if (result.success) {
+      sounds.playRewardChime();
+      showToast(`Added ${result.member?.name} to your VandeCircle!`, 'gold');
+      await refreshUserData();
+      return { success: true };
+    } else {
+      showToast(result.error || 'Failed to add member', 'info');
+      return { success: false, error: result.error };
+    }
+  };
+
+  // Redeem Referral Code
+  const redeemReferral = async (code: string): Promise<{ success: boolean; error?: string }> => {
+    const uid = currentUid;
+    const result = await applyReferralCode(uid, user.referralCode, code, user.username);
+    if (result.success) {
+      sounds.playRewardChime();
+      triggerConfetti(0.5);
+      showToast(`🎉 Invitation code redeemed! +${result.rewardVdc.toFixed(2)} VDC credited!`, 'gold');
+      await refreshUserData();
+      return { success: true };
+    } else {
+      showToast(result.error || 'Invalid referral code', 'info');
+      return { success: false, error: result.error };
+    }
   };
 
   const copyReferralCode = () => {
@@ -424,45 +533,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(`Referral code ${user.referralCode} copied to clipboard!`, 'gold');
   };
 
-  const claimWelcomeReward = () => {
-    sounds.playRewardChime();
-    triggerConfetti(0.4);
-    setUser(prev => ({
-      ...prev,
-      balance: Number((prev.balance + 25.00).toFixed(2)),
-      todayEarnings: Number((prev.todayEarnings + 25.00).toFixed(2)),
-      setupTasksCompleted: 7,
-      xp: Math.min(prev.xpMax, prev.xp + 300),
-    }));
-    setSetupTasks(prev => prev.map(t => ({ ...t, completed: true })));
-    setRewardsHistory(prev => [
-      {
-        id: `tx-welcome-${Date.now()}`,
-        title: 'Welcome to VandeCoin Reward',
-        activity: 'Completed 7/7 onboarding ecosystem setup',
-        amount: 25.00,
-        timestamp: 'Just now',
-        status: 'completed',
-        category: 'welcome'
-      },
-      ...prev
-    ]);
-    showToast('🎉 +25.00 VDC Welcome Reward credited!', 'gold');
-  };
-
-  const markAllNotificationsRead = () => {
+  const markAllNotificationsRead = async () => {
     sounds.playClick();
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    const updated = notifications.map(n => ({ ...n, read: true }));
+    setNotifications(updated);
+    await saveUserNotifications(currentUid, updated);
     showToast('All notifications marked as read', 'info');
   };
 
   const unreadNotificationCount = notifications.filter(n => !n.read).length;
 
+  // Cloud Auth Functions
   const loginWithEmail = async (email: string, pass: string): Promise<boolean> => {
     try {
       const profile = await authLogin(email, pass);
       setAuthUser(profile);
-      setUser(prev => ({ ...prev, username: profile.displayName || email.split('@')[0] }));
       showToast('Signed in successfully!', 'success');
       return true;
     } catch (err: any) {
@@ -475,7 +560,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const profile = await authRegister(email, pass, name);
       setAuthUser(profile);
-      setUser(prev => ({ ...prev, username: name || profile.displayName || '@Pioneer' }));
       showToast('Account created successfully!', 'success');
       return true;
     } catch (err: any) {
@@ -499,6 +583,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = async (): Promise<void> => {
     await authLogout();
     setAuthUser(null);
+    setUser(defaultInitialUser);
+    setRewardsHistory([]);
+    setCircleMembers([]);
     showToast('Logged out', 'info');
   };
 
@@ -506,8 +593,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       await authDelete();
       setAuthUser(null);
-      await Preferences.remove({ key: 'vdc_user_state' });
-      setUser(initialUser);
+      await Preferences.clear();
+      setUser(defaultInitialUser);
+      setRewardsHistory([]);
+      setCircleMembers([]);
       showToast('Account & local data deleted', 'info');
       return true;
     } catch (err: any) {
@@ -547,6 +636,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         markAllNotificationsRead,
         isInviteModalOpen,
         setInviteModalOpen,
+        addCirclePeer,
+        redeemReferral,
+        refreshUserData,
         authUser,
         isCloudConnected: isFirebaseConfigured,
         remoteLeaderboard,

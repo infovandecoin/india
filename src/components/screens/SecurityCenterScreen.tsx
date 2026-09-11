@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   ArrowLeft, 
@@ -10,16 +10,67 @@ import {
   CheckCircle2, 
   Eye, 
   EyeOff, 
-  Copy 
+  Copy,
+  RefreshCw
 } from 'lucide-react';
+import { 
+  getOrCreateRecoveryPhrase, 
+  getSecuritySettings, 
+  saveSecuritySettings, 
+  getHardwareSessions 
+} from '../../services/securityService';
+import { SecuritySession } from '../../types';
 
 export const SecurityCenterScreen: React.FC = () => {
-  const { navigateBack, showToast } = useApp();
+  const { navigateBack, showToast, authUser } = useApp();
+  const currentUid = authUser?.uid || 'local_pioneer';
+
+  const [phrase, setPhrase] = useState('');
   const [showPhrase, setShowPhrase] = useState(false);
   const [passkeyActive, setPasskeyActive] = useState(true);
   const [twoFactorActive, setTwoFactorActive] = useState(true);
+  const [sessions, setSessions] = useState<SecuritySession[]>([]);
 
-  const sampleRecoveryPhrase = 'lotus nexus orbit trust vande energy signal matrix beacon pulse harbor zenith';
+  useEffect(() => {
+    async function loadSecurity() {
+      const savedPhrase = await getOrCreateRecoveryPhrase(currentUid);
+      setPhrase(savedPhrase);
+
+      const settings = await getSecuritySettings(currentUid);
+      setPasskeyActive(settings.passkeyActive);
+      setTwoFactorActive(settings.twoFactorActive);
+
+      setSessions(getHardwareSessions());
+    }
+    loadSecurity();
+  }, [currentUid]);
+
+  const handleTogglePasskey = async () => {
+    const next = !passkeyActive;
+    setPasskeyActive(next);
+    await saveSecuritySettings(currentUid, {
+      passkeyActive: next,
+      twoFactorActive,
+      phraseVerified: true,
+    });
+    showToast(next ? 'Biometric Passkey enabled' : 'Biometric Passkey disabled', 'info');
+  };
+
+  const handleToggle2FA = async () => {
+    const next = !twoFactorActive;
+    setTwoFactorActive(next);
+    await saveSecuritySettings(currentUid, {
+      passkeyActive,
+      twoFactorActive: next,
+      phraseVerified: true,
+    });
+    showToast(next ? 'Two-Factor Authentication enabled' : 'Two-Factor Authentication disabled', 'info');
+  };
+
+  const handleRevokeSession = (sessionId: string) => {
+    setSessions(prev => prev.filter(s => s.id !== sessionId));
+    showToast('Device session revoked', 'info');
+  };
 
   return (
     <div className="w-full flex-1 px-4 py-3 space-y-4 pb-8">
@@ -50,13 +101,13 @@ export const SecurityCenterScreen: React.FC = () => {
 
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-mono text-xs font-semibold">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>SECURITY HEALTH: 98% (EXCELLENT)</span>
+          <span>SECURITY STATUS: ACTIVE & SECURED</span>
         </div>
       </div>
 
       <div className="space-y-2.5">
         <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono px-1">
-          Authentication Factors
+          Cryptographic Protection
         </h3>
 
         {/* 1. Passkey */}
@@ -68,19 +119,16 @@ export const SecurityCenterScreen: React.FC = () => {
             <div>
               <div className="text-xs font-bold text-white flex items-center gap-1.5">
                 <span>Passkey / WebAuthn</span>
-                <span className="px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 text-[9px] font-mono">BIOMETRIC</span>
+                <span className="px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 text-[9px] font-mono">HARDWARE</span>
               </div>
               <div className="text-[11px] text-slate-400 mt-0.5">
-                TouchID / FaceID hardware key
+                Biometric fingerprint / face unlock key
               </div>
             </div>
           </div>
 
           <button
-            onClick={() => {
-              setPasskeyActive(!passkeyActive);
-              showToast(passkeyActive ? 'Passkey disabled' : 'Passkey enabled', 'info');
-            }}
+            onClick={handleTogglePasskey}
             className={`w-11 h-6 rounded-full p-1 transition-colors ${
               passkeyActive ? 'bg-cyan-500' : 'bg-slate-700'
             }`}
@@ -100,16 +148,13 @@ export const SecurityCenterScreen: React.FC = () => {
                 <span>Two-Factor Authentication (2FA)</span>
               </div>
               <div className="text-[11px] text-slate-400 mt-0.5">
-                TOTP Authenticator app sync
+                Multi-factor session verification
               </div>
             </div>
           </div>
 
           <button
-            onClick={() => {
-              setTwoFactorActive(!twoFactorActive);
-              showToast(twoFactorActive ? '2FA disabled' : '2FA enabled', 'info');
-            }}
+            onClick={handleToggle2FA}
             className={`w-11 h-6 rounded-full p-1 transition-colors ${
               twoFactorActive ? 'bg-[#FF9933]' : 'bg-slate-700'
             }`}
@@ -118,7 +163,7 @@ export const SecurityCenterScreen: React.FC = () => {
           </button>
         </div>
 
-        {/* 3. Recovery Phrase */}
+        {/* 3. Real 12-Word Recovery Phrase */}
         <div className="p-4 rounded-2xl bg-[#111420] border border-white/10 space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -126,10 +171,10 @@ export const SecurityCenterScreen: React.FC = () => {
                 <Lock className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-xs font-bold text-white">Recovery Phrase Backup</div>
+                <div className="text-xs font-bold text-white">12-Word Recovery Phrase</div>
                 <div className="text-[11px] text-emerald-400 font-mono flex items-center gap-1 mt-0.5">
                   <CheckCircle2 className="w-3 h-3" />
-                  <span>Verified & Encrypted</span>
+                  <span>BIP39 Seed Verified</span>
                 </div>
               </div>
             </div>
@@ -145,56 +190,63 @@ export const SecurityCenterScreen: React.FC = () => {
 
           {showPhrase && (
             <div className="p-3 rounded-xl bg-[#090B12] border border-amber-500/30 text-amber-200 text-xs font-mono space-y-2 animate-fade-in">
-              <p className="select-all leading-relaxed">{sampleRecoveryPhrase}</p>
+              <p className="select-all leading-relaxed break-words">{phrase}</p>
               <button
                 onClick={() => {
-                  if (navigator.clipboard) navigator.clipboard.writeText(sampleRecoveryPhrase);
-                  showToast('Recovery phrase copied!', 'info');
+                  if (navigator.clipboard) navigator.clipboard.writeText(phrase);
+                  showToast('12-Word Recovery phrase copied securely!', 'info');
                 }}
                 className="flex items-center gap-1 text-[11px] text-[#FF9933] font-bold hover:underline"
               >
                 <Copy className="w-3 h-3" />
-                <span>Copy 12-word phrase</span>
+                <span>Copy 12-word mnemonic phrase</span>
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Active Sessions */}
+      {/* Active Hardware Sessions */}
       <div className="space-y-2.5 pt-1">
         <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono px-1">
-          Active Hardware Sessions (2)
+          Active Hardware Sessions ({sessions.length})
         </h3>
 
-        <div className="p-3.5 rounded-2xl bg-[#111420] border border-white/10 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-3">
-            <Smartphone className="w-5 h-5 text-emerald-400" />
-            <div>
-              <div className="font-bold text-white">iPhone 16 Pro Max (This Device)</div>
-              <div className="text-[10px] text-slate-400 font-mono">Mumbai, IN • Active Now</div>
-            </div>
-          </div>
-          <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-mono">
-            CURRENT
-          </span>
-        </div>
-
-        <div className="p-3.5 rounded-2xl bg-[#111420] border border-white/10 flex items-center justify-between text-xs opacity-75">
-          <div className="flex items-center gap-3">
-            <Laptop className="w-5 h-5 text-slate-400" />
-            <div>
-              <div className="font-bold text-white">MacBook Pro (M3)</div>
-              <div className="text-[10px] text-slate-400 font-mono">Chrome Browser • 2 hours ago</div>
-            </div>
-          </div>
-          <button 
-            onClick={() => showToast('Session revoked', 'info')}
-            className="text-[11px] font-mono text-rose-400 hover:underline"
+        {sessions.map(session => (
+          <div
+            key={session.id}
+            className={`p-3.5 rounded-2xl bg-[#111420] border border-white/10 flex items-center justify-between text-xs ${
+              !session.isCurrent ? 'opacity-80' : ''
+            }`}
           >
-            Revoke
-          </button>
-        </div>
+            <div className="flex items-center gap-3">
+              {session.platform === 'Android' || session.platform === 'iOS' ? (
+                <Smartphone className="w-5 h-5 text-emerald-400" />
+              ) : (
+                <Laptop className="w-5 h-5 text-cyan-400" />
+              )}
+              <div>
+                <div className="font-bold text-white">{session.device}</div>
+                <div className="text-[10px] text-slate-400 font-mono">
+                  {session.browser} • {session.location}
+                </div>
+              </div>
+            </div>
+
+            {session.isCurrent ? (
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-mono font-bold">
+                CURRENT
+              </span>
+            ) : (
+              <button 
+                onClick={() => handleRevokeSession(session.id)}
+                className="text-[11px] font-mono text-rose-400 hover:underline"
+              >
+                Revoke
+              </button>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
